@@ -1,0 +1,109 @@
+@{
+    ViewData["Title"] = "Event Calendar";
+    var year = (int)ViewData["Year"];
+    var month = (int)ViewData["Month"];
+    var monthName = (string)ViewData["MonthName"];
+    var daysInMonth = (int)ViewData["DaysInMonth"];
+    var startOffset = (int)ViewData["StartOffset"];
+    var eventsByDay = (Dictionary<int, List<Event>>)ViewData["EventsByDay"]!;
+    var upcoming = (List<Event>)ViewData["Upcoming"]!;
+    var today = DateTime.Today;
+    var weekDays = new[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
+}
+
+<div class="page-heading">
+    <h1>Event Calendar</h1>
+        <div class="btn-group">
+            <a asp-action="Index" asp-route-year="@ViewData["PrevYear"]" asp-route-month="@ViewData["PrevMonth"]" class="btn btn-outline-secondary">&laquo; Prev</a>
+            <a asp-action="Index" class="btn btn-outline-primary">Today</a>
+            <a asp-action="Index" asp-route-year="@ViewData["NextYear"]" asp-route-month="@ViewData["NextMonth"]" class="btn btn-outline-secondary">Next &raquo;</a>
+        </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-9">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>@monthName</span>
+                <span class="badge text-bg-primary">@(eventsByDay.Values.Sum(v => v.Count)) events</span>
+            </div>
+            <div class="card-body p-2">
+                <table class="table calendar-grid mb-0">
+                    <thead>
+                        <tr>
+                            @foreach (var d in weekDays)
+                            {
+                                <th class="text-center">@d</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{
+                            var totalCells = startOffset + daysInMonth;
+                            var weeks = (int)Math.Ceiling(totalCells / 7.0);
+                            var cell = 0;
+                        }
+                        @for (var w = 0; w < weeks; w++)
+                        {
+                            <tr>
+                                @for (var d = 0; d < 7; d++)
+                                {
+                                    cell++;
+                                    var dayNum = cell - startOffset;
+                                    if (dayNum < 1 || dayNum > daysInMonth)
+                                    {
+                                        <td class="calendar-day other-month"></td>
+                                    }
+                                    else
+                                    {
+                                        var dayEvents = eventsByDay.TryGetValue(dayNum, out var evts) ? evts : new List<Event>();
+                                        var isToday = year == today.Year && month == today.Month && dayNum == today.Day;
+                                        <td class="calendar-day @(isToday ? "today" : "")">
+                                            <div class="day-num">@dayNum</div>
+                                            @foreach (var evt in dayEvents)
+                                            {
+                                                <a asp-controller="Events" asp-action="Details" asp-route-id="@evt.Id" class="@StatusHelper.CalendarCss(evt.Status)" title="@evt.Name">@evt.Name</a>
+                                            }
+                                        </td>
+                                    }
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3">
+        <div class="card">
+            <div class="card-header">Upcoming Events</div>
+            <div class="card-body p-0">
+                @if (upcoming.Count == 0)
+                {
+                    <p class="text-muted p-3 mb-0">No upcoming events.</p>
+                }
+                else
+                {
+                    <ul class="list-group list-group-flush">
+                        @foreach (var evt in upcoming)
+                        {
+                            <li class="list-group-item">
+                                <a asp-controller="Events" asp-action="Details" asp-route-id="@evt.Id" class="fw-semibold text-decoration-none">@evt.Name</a>
+                                <div class="text-muted small">@evt.StartDate.ToString("MMM dd, yyyy")</div>
+                                <div class="text-muted small">@evt.Client?.CompanyName ?? "-"</div>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </div>
+        <div class="card mt-3">
+            <div class="card-header">Legend</div>
+            <div class="card-body">
+                <div class="mb-1"><span class="badge badge-secondary">Pending</span> Pending</div>
+                <div class="mb-1"><span class="badge badge-danger">Cancelled</span> Cancelled</div>
+                <div class="mb-1"><span class="badge badge-success">Completed</span> Completed</div>
+            </div>
+        </div>
+    </div>
+</div>

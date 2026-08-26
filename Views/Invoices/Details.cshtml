@@ -1,0 +1,74 @@
+@model EventSphere.Web.Models.Invoice
+@{
+    ViewData["Title"] = "Invoice Details";
+}
+
+<div class="page-heading">
+    <h1>@Model.InvoiceNumber</h1>
+    <div>
+        @if (Model.Balance > 0)
+        {
+            <a asp-action="RecordPayment" asp-route-id="@Model.Id" class="btn btn-success">Record Payment</a>
+        }
+        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Edit</a>
+        <a asp-action="Index" class="btn btn-outline-secondary">Back to List</a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">Billing Details</div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Client</dt>
+                    <dd class="col-sm-8">@Model.Client?.CompanyName</dd>
+                    <dt class="col-sm-4">Event</dt>
+                    <dd class="col-sm-8">
+                        @if (Model.Event != null)
+                        {
+                            <a asp-controller="Events" asp-action="Details" asp-route-id="@Model.EventId" class="text-decoration-none">@Model.Event.Name</a>
+                        }
+                        else
+                        {
+                            <text>-</text>
+                        }
+                    </dd>
+                    <dt class="col-sm-4">Issue Date</dt>
+                    <dd class="col-sm-8">@Model.IssueDate.ToString("MMM dd, yyyy")</dd>
+                    <dt class="col-sm-4">Due Date</dt>
+                    <dd class="col-sm-8">@Model.DueDate.ToString("MMM dd, yyyy")</dd>
+                    <dt class="col-sm-4">Status</dt>
+                    <dd class="col-sm-8"><span class="badge @StatusHelper.Badge(Model.Status)">@Model.Status</span></dd>
+                </dl>
+                <hr />
+                <p class="mb-0">@(string.IsNullOrEmpty(Model.Notes) ? "No notes." : Model.Notes)</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">Amount Summary</div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Total Amount</span>
+                    <span class="fw-semibold">@StatusHelper.Money(Model.Amount)</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Paid Amount</span>
+                    <span class="fw-semibold text-success">@StatusHelper.Money(Model.PaidAmount)</span>
+                </div>
+                <div class="d-flex justify-content-between border-top pt-2">
+                    <span class="fw-bold">Balance Due</span>
+                    <span class="fw-bold @(Model.Balance > 0 ? "text-danger" : "text-success")">@StatusHelper.Money(Model.Balance)</span>
+                </div>
+                <div class="progress mt-3" style="height:10px;">
+                    @{
+                        var pct = Model.Amount > 0 ? (int)(Model.PaidAmount / Model.Amount * 100) : 0;
+                    }
+                    <div class="progress-bar bg-success" style="width:@(pct)%;">@pct%</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

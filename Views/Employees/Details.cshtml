@@ -1,0 +1,66 @@
+@model EventSphere.Web.Models.Employee
+@{
+    ViewData["Title"] = "Employee Details";
+}
+
+<div class="page-heading">
+    <h1>@Model.FullName</h1>
+    <div>
+        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Edit</a>
+        <a asp-action="Index" class="btn btn-outline-secondary">Back to List</a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-5">
+        <div class="card h-100">
+            <div class="card-header">Employee Information</div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Role</dt>
+                    <dd class="col-sm-8">@Model.Role</dd>
+                    <dt class="col-sm-4">Email</dt>
+                    <dd class="col-sm-8">@Model.Email</dd>
+                    <dt class="col-sm-4">Phone</dt>
+                    <dd class="col-sm-8">@Model.Phone</dd>
+                    <dt class="col-sm-4">Salary</dt>
+                    <dd class="col-sm-8">@StatusHelper.Money(Model.Salary)</dd>
+                    <dt class="col-sm-4">Hire Date</dt>
+                    <dd class="col-sm-8">@Model.HireDate.ToString("MMM dd, yyyy")</dd>
+                    <dt class="col-sm-4">Status</dt>
+                    <dd class="col-sm-8"><span class="badge @StatusHelper.Badge(Model.Status)">@Model.Status</span></dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-7">
+        <div class="card h-100">
+            <div class="card-header">Event Assignments</div>
+            <div class="card-body p-0">
+                @if (Model.Assignments.Count == 0)
+                {
+                    <p class="text-muted p-3 mb-0">No assignments yet.</p>
+                }
+                else
+                {
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr><th>Event</th><th>Role</th><th class="text-end">Hours</th><th>Status</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var a in Model.Assignments)
+                            {
+                                <tr>
+                                    <td><a asp-controller="Events" asp-action="Details" asp-route-id="@a.EventId" class="text-decoration-none">@a.Event?.Name</a></td>
+                                    <td>@a.Role</td>
+                                    <td class="text-end">@a.Hours.ToString("0.#")</td>
+                                    <td><span class="badge @StatusHelper.Badge(a.Status)">@a.Status</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    </div>
+</div>

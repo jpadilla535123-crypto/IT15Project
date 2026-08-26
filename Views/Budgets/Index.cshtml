@@ -1,0 +1,87 @@
+@model IEnumerable<EventSphere.Web.Models.Budget>
+@{
+    ViewData["Title"] = "Budget Management";
+    var categories = (string[])ViewData["Categories"]!;
+    var category = ViewData["Category"] as string;
+}
+
+<div class="page-heading">
+    <h1>Budget Management</h1>
+    <a asp-action="Create" class="btn btn-primary">+ New Budget Line</a>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-label">Total Planned</div>
+            <div class="stat-value text-primary">@StatusHelper.Money((decimal)ViewData["TotalPlanned"])</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-label">Total Actual</div>
+            <div class="stat-value text-warning">@StatusHelper.Money((decimal)ViewData["TotalActual"])</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-label">Variance</div>
+            <div class="stat-value @((decimal)ViewData["TotalActual"] > (decimal)ViewData["TotalPlanned"] ? "text-danger" : "text-success")">
+                @StatusHelper.Money((decimal)ViewData["TotalActual"] - (decimal)ViewData["TotalPlanned"])
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-center">
+            <div class="col-auto">
+                <a asp-action="Index" class="btn btn-sm @(string.IsNullOrEmpty(category) ? "btn-secondary" : "btn-outline-secondary")">All Categories</a>
+                @foreach (var c in categories)
+                {
+                    <a asp-action="Index" asp-route-category="@c" class="btn btn-sm @(category == c ? "btn-secondary" : "btn-outline-secondary")">@c</a>
+                }
+            </div>
+            <div class="col-md-2 ms-auto">
+                <select name="eventId" class="form-select form-select-sm" asp-items="ViewBag.Events" onchange="this.form.submit()">
+                    <option value="">All Events</option>
+                </select>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Event</th>
+                    <th>Category</th>
+                    <th class="text-end">Planned</th>
+                    <th class="text-end">Actual</th>
+                    <th class="text-end">Variance</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var b in Model)
+                {
+                    var variance = b.ActualAmount - b.PlannedAmount;
+                    <tr>
+                        <td><a asp-controller="Events" asp-action="Details" asp-route-id="@b.EventId" class="text-decoration-none fw-semibold">@b.Event?.Name</a></td>
+                        <td><span class="badge text-bg-light border">@b.Category</span></td>
+                        <td class="text-end">@StatusHelper.Money(b.PlannedAmount)</td>
+                        <td class="text-end">@StatusHelper.Money(b.ActualAmount)</td>
+                        <td class="text-end fw-semibold @(variance > 0 ? "text-danger" : "text-success")">@(variance > 0 ? "+" : "")@StatusHelper.Money(variance)</td>
+                        <td class="text-end">
+                            <a asp-action="Edit" asp-route-id="@b.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
+                            <a asp-action="Delete" asp-route-id="@b.Id" class="btn btn-sm btn-outline-danger">Delete</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

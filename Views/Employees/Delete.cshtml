@@ -1,0 +1,25 @@
+@model EventSphere.Web.Models.Employee
+@{
+    ViewData["Title"] = "Delete Employee";
+}
+
+<div class="page-heading">
+    <h1>Delete Employee</h1>
+</div>
+
+<div class="card border-danger">
+    <div class="card-body">
+        <p class="mb-3">Are you sure you want to delete <strong>@Model.FullName</strong>? All of their assignments will also be removed.</p>
+        <dl class="row mb-3">
+            <dt class="col-sm-3">Role</dt>
+            <dd class="col-sm-9">@Model.Role</dd>
+            <dt class="col-sm-3">Email</dt>
+            <dd class="col-sm-9">@Model.Email</dd>
+        </dl>
+        <form asp-action="Delete">
+            <input type="hidden" asp-for="Id" />
+            <button type="submit" class="btn btn-danger">Delete</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+        </form>
+    </div>
+</div>

@@ -1,0 +1,70 @@
+@model IEnumerable<EventSphere.Web.Models.Employee>
+@{
+    ViewData["Title"] = "Employee Management";
+    var roles = (string[])ViewData["Roles"]!;
+    var role = ViewData["Role"] as string;
+    var search = ViewData["Search"] as string;
+}
+
+<div class="page-heading">
+    <h1>Employee Management</h1>
+    <a asp-action="Create" class="btn btn-primary">+ New Employee</a>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-center">
+            <div class="col-auto">
+                <a asp-action="Index" class="btn btn-sm @(string.IsNullOrEmpty(role) ? "btn-secondary" : "btn-outline-secondary")">All</a>
+                @foreach (var r in roles)
+                {
+                    <a asp-action="Index" asp-route-role="@r" asp-route-search="@search" class="btn btn-sm @(role == r ? "btn-secondary" : "btn-outline-secondary")">@r</a>
+                }
+            </div>
+            <div class="col-auto ms-auto">
+                <div class="input-group input-group-sm">
+                    <input name="search" value="@search" class="form-control" placeholder="Search employees..." />
+                    <button class="btn btn-outline-secondary" type="submit">Search</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Role</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th class="text-end">Salary</th>
+                    <th>Status</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var emp in Model)
+                {
+                    <tr>
+                        <td>
+                            <span class="avatar-circle me-2">@($"{emp.FirstName[0]}{emp.LastName[0]}")</span>
+                            <a asp-action="Details" asp-route-id="@emp.Id" class="fw-semibold text-decoration-none">@emp.FullName</a>
+                        </td>
+                        <td>@emp.Role</td>
+                        <td>@emp.Email</td>
+                        <td>@emp.Phone</td>
+                        <td class="text-end">@StatusHelper.Money(emp.Salary)</td>
+                        <td><span class="badge @StatusHelper.Badge(emp.Status)">@emp.Status</span></td>
+                        <td class="text-end">
+                            <a asp-action="Edit" asp-route-id="@emp.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
+                            <a asp-action="Delete" asp-route-id="@emp.Id" class="btn btn-sm btn-outline-danger">Delete</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

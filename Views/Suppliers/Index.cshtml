@@ -1,0 +1,70 @@
+@model IEnumerable<EventSphere.Web.Models.Supplier>
+@{
+    ViewData["Title"] = "Supplier Management";
+    var categories = (string[])ViewData["Categories"]!;
+    var category = ViewData["Category"] as string;
+    var search = ViewData["Search"] as string;
+}
+
+<div class="page-heading">
+    <h1>Supplier Management</h1>
+    <a asp-action="Create" class="btn btn-primary">+ New Supplier</a>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-center">
+            <div class="col-auto">
+                <a asp-action="Index" class="btn btn-sm @(string.IsNullOrEmpty(category) ? "btn-secondary" : "btn-outline-secondary")">All</a>
+                @foreach (var c in categories)
+                {
+                    <a asp-action="Index" asp-route-category="@c" asp-route-search="@search" class="btn btn-sm @(category == c ? "btn-secondary" : "btn-outline-secondary")">@c</a>
+                }
+            </div>
+            <div class="col-auto ms-auto">
+                <div class="input-group input-group-sm">
+                    <input name="search" value="@search" class="form-control" placeholder="Search suppliers..." />
+                    <button class="btn btn-outline-secondary" type="submit">Search</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Supplier</th>
+                    <th>Category</th>
+                    <th>Contact</th>
+                    <th>Email</th>
+                    <th class="text-center">Rating</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var supplier in Model)
+                {
+                    <tr>
+                        <td class="fw-semibold">@supplier.Name</td>
+                        <td><span class="badge text-bg-light border">@supplier.Category</span></td>
+                        <td>@supplier.ContactPerson</td>
+                        <td>@supplier.Email</td>
+                        <td class="text-center">
+                            @for (var i = 1; i <= 5; i++)
+                            {
+                                <span class="text-warning">@(i <= supplier.Rating ? "★" : "☆")</span>
+                            }
+                        </td>
+                        <td class="text-end">
+                            <a asp-action="Edit" asp-route-id="@supplier.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
+                            <a asp-action="Delete" asp-route-id="@supplier.Id" class="btn btn-sm btn-outline-danger">Delete</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

@@ -1,0 +1,25 @@
+@model EventSphere.Web.Models.Client
+@{
+    ViewData["Title"] = "Delete Client";
+}
+
+<div class="page-heading">
+    <h1>Delete Client</h1>
+</div>
+
+<div class="card border-danger">
+    <div class="card-body">
+        <p class="mb-3">Are you sure you want to delete <strong>@Model.CompanyName</strong>? This action cannot be undone.</p>
+        <dl class="row mb-3">
+            <dt class="col-sm-3">Contact</dt>
+            <dd class="col-sm-9">@Model.ContactPerson (@Model.Email)</dd>
+            <dt class="col-sm-3">Type</dt>
+            <dd class="col-sm-9">@Model.ClientType</dd>
+        </dl>
+        <form asp-action="Delete">
+            <input type="hidden" asp-for="Id" />
+            <button type="submit" class="btn btn-danger">Delete</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+        </form>
+    </div>
+</div>

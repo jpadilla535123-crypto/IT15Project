@@ -1,0 +1,56 @@
+@model IEnumerable<EventSphere.Web.Models.Venue>
+@{
+    ViewData["Title"] = "Venue Management";
+    var search = ViewData["Search"] as string;
+}
+
+<div class="page-heading">
+    <h1>Venue Management</h1>
+    <a asp-action="Create" class="btn btn-primary">+ New Venue</a>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-center">
+            <div class="col-auto ms-auto">
+                <div class="input-group input-group-sm">
+                    <input name="search" value="@search" class="form-control" placeholder="Search venues..." />
+                    <button class="btn btn-outline-secondary" type="submit">Search</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Venue</th>
+                    <th>Location</th>
+                    <th class="text-end">Capacity</th>
+                    <th class="text-end">Price / Day</th>
+                    <th>Contact</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var venue in Model)
+                {
+                    <tr>
+                        <td class="fw-semibold"><a asp-action="Details" asp-route-id="@venue.Id" class="text-decoration-none">@venue.Name</a></td>
+                        <td>@venue.Address, @venue.City</td>
+                        <td class="text-end">@venue.Capacity</td>
+                        <td class="text-end">@StatusHelper.Money(venue.PricePerDay)</td>
+                        <td>@venue.ContactPerson</td>
+                        <td class="text-end">
+                            <a asp-action="Edit" asp-route-id="@venue.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
+                            <a asp-action="Delete" asp-route-id="@venue.Id" class="btn btn-sm btn-outline-danger">Delete</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

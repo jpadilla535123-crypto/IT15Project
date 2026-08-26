@@ -1,0 +1,25 @@
+@model EventSphere.Web.Models.Invoice
+@{
+    ViewData["Title"] = "Delete Invoice";
+}
+
+<div class="page-heading">
+    <h1>Delete Invoice</h1>
+</div>
+
+<div class="card border-danger">
+    <div class="card-body">
+        <p class="mb-3">Are you sure you want to delete invoice <strong>@Model.InvoiceNumber</strong>? This action cannot be undone.</p>
+        <dl class="row mb-3">
+            <dt class="col-sm-3">Client</dt>
+            <dd class="col-sm-9">@Model.Client?.CompanyName</dd>
+            <dt class="col-sm-3">Amount</dt>
+            <dd class="col-sm-9">@StatusHelper.Money(Model.Amount)</dd>
+        </dl>
+        <form asp-action="Delete">
+            <input type="hidden" asp-for="Id" />
+            <button type="submit" class="btn btn-danger">Delete</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+        </form>
+    </div>
+</div>

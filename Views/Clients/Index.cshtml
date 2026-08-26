@@ -1,0 +1,191 @@
+@model IEnumerable<EventSphere.Web.Models.Client>
+@{
+    ViewData["Title"] = "Client Management";
+    var tab = ViewData["Tab"] as string;
+    var search = ViewData["Search"] as string;
+    var pg = (int)ViewData["Page"]!;
+    var totalPages = (int)ViewData["TotalPages"]!;
+    var allCount = (int)ViewData["AllCount"]!;
+    var newCount = (int)ViewData["NewCount"]!;
+    var bookedCount = (int)ViewData["BookedCount"]!;
+    var completedCount = (int)ViewData["CompletedCount"]!;
+    var cancelledCount = (int)ViewData["CancelledCount"]!;
+    string BadgeClass(string s) => s switch
+    {
+        "New" => "badge-client-new",
+        "Booked" => "badge-client-booked",
+        "Completed" => "badge-client-completed",
+        "Cancelled" => "badge-client-cancelled",
+        _ => "badge-secondary"
+    };
+}
+
+<div class="page-heading">
+    <div>
+        <h1>Clients</h1>
+        <span class="text-muted" style="font-size:13px;">View all of your Client information.</span>
+    </div>
+    <div class="d-flex gap-2">
+        <button type="button" class="btn-ghost" title="Export">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export
+        </button>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createClientModal">+ Add New</button>
+    </div>
+</div>
+
+<div class="d-flex gap-2 mb-3" style="overflow-x:auto; padding-bottom:4px;">
+    <a asp-action="Index" asp-route-search="@search" class="tab-pill @(tab == "all" ? "active" : "")">
+        All Clients <span class="count">@allCount</span>
+    </a>
+    <a asp-action="Index" asp-route-tab="new" asp-route-search="@search" class="tab-pill @(tab == "new" ? "active" : "")">
+        New <span class="count">@newCount</span>
+    </a>
+    <a asp-action="Index" asp-route-tab="booked" asp-route-search="@search" class="tab-pill @(tab == "booked" ? "active" : "")">
+        Booked <span class="count">@bookedCount</span>
+    </a>
+    <a asp-action="Index" asp-route-tab="completed" asp-route-search="@search" class="tab-pill @(tab == "completed" ? "active" : "")">
+        Completed <span class="count">@completedCount</span>
+    </a>
+    <a asp-action="Index" asp-route-tab="cancelled" asp-route-search="@search" class="tab-pill @(tab == "cancelled" ? "active" : "")">
+        Cancelled <span class="count">@cancelledCount</span>
+    </a>
+</div>
+
+<div class="card">
+    <div class="table-toolbar">
+        <form method="get" class="d-flex align-items-center gap-2" style="flex:1;">
+            <input type="hidden" name="tab" value="@tab" />
+            <div class="input-group input-group-sm" style="max-width:320px;">
+                <span class="input-group-text" style="background:var(--input-bg);border-color:var(--border);color:var(--muted);">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                </span>
+                <input name="search" value="@search" class="form-control" placeholder="Search for Clients" style="background:var(--input-bg);border-color:var(--border);color:#fff;font-size:13px;" />
+            </div>
+            <button class="btn btn-sm btn-outline-secondary" type="submit" style="font-size:13px;">Search</button>
+        </form>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn-ghost" style="font-size:12.5px;padding:6px 12px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>
+                Date Range
+            </button>
+            <button type="button" class="btn-ghost" style="font-size:12.5px;padding:6px 12px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                Filters
+            </button>
+        </div>
+    </div>
+
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th style="width:36px;"><input type="checkbox" class="form-check-input" /></th>
+                    <th>#</th>
+                    <th>Client's Name</th>
+                    <th>Email</th>
+                    <th>Phone Number</th>
+                    <th>Date of Inquiry</th>
+                    <th>Status</th>
+                    <th class="text-end">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Any())
+                {
+                    <tr><td colspan="8" class="text-center text-muted py-4">No clients found.</td></tr>
+                }
+                @{ var idx = (pg - 1) * 10; }
+                @foreach (var client in Model)
+                {
+                    idx++;
+                    <tr>
+                        <td><input type="checkbox" class="form-check-input" /></td>
+                        <td class="text-muted">@idx</td>
+                        <td class="fw-semibold">@client.CompanyName</td>
+                        <td>@client.Email</td>
+                        <td>@client.Phone</td>
+                        <td>@client.DateOfInquiry.ToString("MMM d, yyyy")</td>
+                        <td><span class="badge @BadgeClass(client.Status)">@client.Status</span></td>
+                        <td class="text-end">
+                            @if (client.Status == "New")
+                            {
+                                <form asp-action="Book" asp-route-id="@client.Id" asp-route-tab="@tab" asp-route-search="@search" asp-route-page="@(pg)" method="post" class="d-inline">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn btn-sm btn-outline-success" title="Proceed with Booking" style="padding:4px 8px;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-check-lg" viewBox="0 0 16 16"><path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425z"/></svg>
+                                    </button>
+                                </form>
+                                <form asp-action="Cancel" asp-route-id="@client.Id" asp-route-tab="@tab" asp-route-search="@search" asp-route-page="@(pg)" method="post" class="d-inline">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Cancel" style="padding:4px 8px;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-x-lg" viewBox="0 0 16 16"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"/></svg>
+                                    </button>
+                                </form>
+                            }
+                            else
+                            {
+                                <span class="text-muted">&mdash;</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (totalPages > 1)
+    {
+        <div class="pagination-bar">
+            <a class="@(pg <= 1 ? "disabled" : "")" asp-action="Index" asp-route-tab="@tab" asp-route-search="@search" asp-route-page="@(pg - 1)">
+                &larr; Previous
+            </a>
+            @{
+                var start = Math.Max(1, pg - 2);
+                var end = Math.Min(totalPages, pg + 2);
+            }
+            @for (var p = start; p <= end; p++)
+            {
+                <a asp-action="Index" asp-route-tab="@tab" asp-route-search="@search" asp-route-page="@p" class="@(p == pg ? "active" : "")">@p</a>
+            }
+            <a class="@(pg >= totalPages ? "disabled" : "")" asp-action="Index" asp-route-tab="@tab" asp-route-search="@search" asp-route-page="@(pg + 1)">
+                Next &rarr;
+            </a>
+        </div>
+    }
+</div>
+
+<div class="modal fade" id="createClientModal" tabindex="-1" aria-labelledby="createClientModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" style="background:var(--card);border:1px solid var(--border);color:#fff;">
+            <form asp-action="Create">
+                <div class="modal-header" style="border-color:var(--border);">
+                    <h5 class="modal-title" id="createClientModalLabel">Add New Client</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="ClientName" class="form-label">Client's Name</label>
+                        <input name="CompanyName" class="form-control" placeholder="Client or company name" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="ClientEmail" class="form-label">Email</label>
+                        <input name="Email" type="email" class="form-control" placeholder="Email address" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="ClientPhone" class="form-label">Phone Number</label>
+                        <input name="Phone" class="form-control" placeholder="Phone number" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="ClientDOI" class="form-label">Date of Inquiry</label>
+                        <input name="DateOfInquiry" type="date" class="form-control" value="@DateTime.Today.ToString("yyyy-MM-dd")" required />
+                    </div>
+                </div>
+                <div class="modal-footer" style="border-color:var(--border);">
+                    <button type="button" class="btn-ghost" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Client</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

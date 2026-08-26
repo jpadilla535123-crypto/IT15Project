@@ -1,0 +1,215 @@
+@{
+    ViewData["Title"] = "Reports";
+    var eventsByStatus = ((System.Collections.IEnumerable)ViewData["EventsByStatus"]!).Cast<dynamic>().ToList();
+    var eventsByType = ((System.Collections.IEnumerable)ViewData["EventsByType"]!).Cast<dynamic>().ToList();
+    var revenueByClient = ((System.Collections.IEnumerable)ViewData["RevenueByClient"]!).Cast<dynamic>().ToList();
+    var budgetVsActual = ((System.Collections.IEnumerable)ViewData["BudgetVsActual"]!).Cast<dynamic>().ToList();
+    var leadsByStatus = ((System.Collections.IEnumerable)ViewData["LeadsByStatus"]!).Cast<dynamic>().ToList();
+    var leadsBySource = ((System.Collections.IEnumerable)ViewData["LeadsBySource"]!).Cast<dynamic>().ToList();
+    var workload = ((System.Collections.IEnumerable)ViewData["WorkloadByEmployee"]!).Cast<dynamic>().ToList();
+
+    var maxEventsStatus = eventsByStatus.Count > 0 ? (int)eventsByStatus.Max(x => (int)x.Value) : 1;
+    var maxEventsType = eventsByType.Count > 0 ? (int)eventsByType.Max(x => (int)x.Value) : 1;
+    var maxRevenue = revenueByClient.Count > 0 ? (decimal)revenueByClient.Max(x => (decimal)x.Value) : 1;
+    var maxBudget = budgetVsActual.Count > 0 ? (decimal)budgetVsActual.Max(x => (decimal)x.Planned) : 1;
+    var maxHours = workload.Count > 0 ? (decimal)workload.Max(x => (decimal)x.Hours) : 1;
+}
+
+<div class="page-heading">
+    <h1>Reports &amp; Analytics</h1>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-label">Total Events</div>
+            <div class="stat-value">@ViewData["TotalEvents"]</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-label">Clients</div>
+            <div class="stat-value">@ViewData["TotalClients"]</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-label">Lead Conversion</div>
+            <div class="stat-value">@ViewData["ConvertedLeads"] / @ViewData["TotalLeads"]</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-label">Staff</div>
+            <div class="stat-value">@ViewData["TotalEmployees"]</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-label">Total Revenue (Billed)</div>
+            <div class="stat-value text-primary">@StatusHelper.Money((decimal)ViewData["Revenue"])</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-label">Collected</div>
+            <div class="stat-value text-success">@StatusHelper.Money((decimal)ViewData["Collected"])</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-label">Outstanding</div>
+            <div class="stat-value text-danger">@StatusHelper.Money((decimal)ViewData["Outstanding"])</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="card mb-3">
+            <div class="card-header">Events by Status</div>
+            <div class="card-body">
+                @foreach (var item in eventsByStatus)
+                {
+                    var pct = (int)((int)item.Value * 100.0 / maxEventsStatus);
+                    <div class="mb-2">
+                        <div class="d-flex justify-content-between small">
+                            <span>@item.Key</span>
+                            <span class="fw-semibold">@item.Value</span>
+                        </div>
+                        <div class="progress" style="height:10px;">
+                            <div class="progress-bar" style="width:@(pct)%; background:#6366f1;"></div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+        <div class="card mb-3">
+            <div class="card-header">Events by Type</div>
+            <div class="card-body">
+                @foreach (var item in eventsByType)
+                {
+                    var pct = (int)((int)item.Value * 100.0 / maxEventsType);
+                    <div class="mb-2">
+                        <div class="d-flex justify-content-between small">
+                            <span>@item.Key</span>
+                            <span class="fw-semibold">@item.Value</span>
+                        </div>
+                        <div class="progress" style="height:10px;">
+                            <div class="progress-bar bg-info" style="width:@(pct)%;"></div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+        <div class="card mb-3">
+            <div class="card-header">Leads by Status</div>
+            <div class="card-body">
+                @foreach (var item in leadsByStatus)
+                {
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span>@item.Key</span>
+                        <span class="fw-semibold">@item.Value</span>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card mb-3">
+            <div class="card-header">Revenue by Client</div>
+            <div class="card-body">
+                @if (revenueByClient.Count == 0)
+                {
+                    <p class="text-muted mb-0">No revenue data.</p>
+                }
+                @foreach (var item in revenueByClient)
+                {
+                    var pct = (int)((decimal)item.Value * 100m / maxRevenue);
+                    <div class="mb-2">
+                        <div class="d-flex justify-content-between small">
+                            <span>@item.Key</span>
+                            <span class="fw-semibold">@StatusHelper.Money((decimal)item.Value)</span>
+                        </div>
+                        <div class="progress" style="height:10px;">
+                            <div class="progress-bar bg-success" style="width:@(pct)%;"></div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+        <div class="card mb-3">
+            <div class="card-header">Leads by Source</div>
+            <div class="card-body">
+                @foreach (var item in leadsBySource)
+                {
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span>@item.Key</span>
+                        <span class="fw-semibold">@item.Value</span>
+                    </div>
+                }
+            </div>
+        </div>
+        <div class="card mb-3">
+            <div class="card-header">Budget vs Actual by Event</div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr><th>Event</th><th class="text-end">Planned</th><th class="text-end">Actual</th><th>Utilization</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in budgetVsActual)
+                        {
+                            var planned = (decimal)item.Planned;
+                            var actual = (decimal)item.Actual;
+                            var pct = planned > 0 ? (int)(actual * 100m / planned) : 0;
+                            <tr>
+                                <td>@item.Name</td>
+                                <td class="text-end">@StatusHelper.Money(planned)</td>
+                                <td class="text-end">@StatusHelper.Money(actual)</td>
+                                <td style="width:140px;">
+                                    <div class="progress" style="height:10px;">
+                                        <div class="progress-bar @(pct > 100 ? "bg-danger" : pct > 85 ? "bg-warning" : "bg-success")" style="width:@(pct > 100 ? 100 : pct)%;"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">Staff Workload (Hours Assigned)</div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr><th>Employee</th><th>Role</th><th class="text-end">Assignments</th><th>Hours</th><th style="width:250px;">Load</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var item in workload)
+                {
+                    var hours = (decimal)item.Hours;
+                    var pct = maxHours > 0 ? (int)(hours * 100m / maxHours) : 0;
+                    <tr>
+                        <td class="fw-semibold">@item.Name</td>
+                        <td>@item.Role</td>
+                        <td class="text-end">@item.Count</td>
+                        <td>@hours.ToString("0.#") hrs</td>
+                        <td>
+                            <div class="progress" style="height:10px;">
+                                <div class="progress-bar" style="width:@(pct)%; background:#8b5cf6;"></div>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

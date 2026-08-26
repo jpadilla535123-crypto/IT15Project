@@ -1,0 +1,70 @@
+@model EventSphere.Web.Models.Venue
+@{
+    ViewData["Title"] = "Venue Details";
+}
+
+<div class="page-heading">
+    <h1>@Model.Name</h1>
+    <div>
+        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Edit</a>
+        <a asp-action="Index" class="btn btn-outline-secondary">Back to List</a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-5">
+        <div class="card h-100">
+            <div class="card-header">Venue Information</div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Address</dt>
+                    <dd class="col-sm-8">@Model.Address</dd>
+                    <dt class="col-sm-4">City</dt>
+                    <dd class="col-sm-8">@Model.City</dd>
+                    <dt class="col-sm-4">Capacity</dt>
+                    <dd class="col-sm-8">@Model.Capacity guests</dd>
+                    <dt class="col-sm-4">Price / Day</dt>
+                    <dd class="col-sm-8">@StatusHelper.Money(Model.PricePerDay)</dd>
+                    <dt class="col-sm-4">Contact</dt>
+                    <dd class="col-sm-8">@Model.ContactPerson</dd>
+                    <dt class="col-sm-4">Phone</dt>
+                    <dd class="col-sm-8">@Model.Phone</dd>
+                    <dt class="col-sm-4">Email</dt>
+                    <dd class="col-sm-8">@Model.Email</dd>
+                </dl>
+                <hr />
+                <p class="mb-0">@(string.IsNullOrEmpty(Model.Description) ? "No description." : Model.Description)</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-7">
+        <div class="card h-100">
+            <div class="card-header">Events at this Venue</div>
+            <div class="card-body p-0">
+                @if (Model.Events.Count == 0)
+                {
+                    <p class="text-muted p-3 mb-0">No events scheduled at this venue.</p>
+                }
+                else
+                {
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr><th>Event</th><th>Client</th><th>Date</th><th>Status</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var e in Model.Events)
+                            {
+                                <tr>
+                                    <td><a asp-controller="Events" asp-action="Details" asp-route-id="@e.Id" class="text-decoration-none">@e.Name</a></td>
+                                    <td>@e.Client?.CompanyName ?? "-"</td>
+                                    <td>@e.StartDate.ToString("MMM dd, yyyy")</td>
+                                    <td><span class="badge @StatusHelper.Badge(e.Status)">@e.Status</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    </div>
+</div>

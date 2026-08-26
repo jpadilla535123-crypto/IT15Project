@@ -1,0 +1,69 @@
+@model EventSphere.Web.Models.EventAssignment
+@{
+    ViewData["Title"] = "Create Assignment";
+    var statuses = (string[])ViewData["Statuses"]!;
+    var roles = (string[])ViewData["Roles"]!;
+}
+
+<div class="page-heading">
+    <h1>Create Assignment</h1>
+    <a asp-action="Index" class="btn btn-outline-secondary">Back to List</a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form asp-action="Create">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label asp-for="EventId" class="form-label"></label>
+                        <select asp-for="EventId" class="form-select" asp-items="ViewBag.EventList">
+                            <option value="">-- Select Event --</option>
+                        </select>
+                        <span asp-validation-for="EventId" class="text-danger"></span>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label asp-for="EmployeeId" class="form-label"></label>
+                        <select asp-for="EmployeeId" class="form-select" asp-items="ViewBag.EmployeeList">
+                            <option value="">-- Select Employee --</option>
+                        </select>
+                        <span asp-validation-for="EmployeeId" class="text-danger"></span>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label asp-for="Role" class="form-label"></label>
+                        <select asp-for="Role" class="form-select" asp-items="@(new SelectList(roles))"></select>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label asp-for="Hours" class="form-label"></label>
+                        <input asp-for="Hours" class="form-control" />
+                        <span asp-validation-for="Hours" class="text-danger"></span>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label asp-for="Status" class="form-label"></label>
+                        <select asp-for="Status" class="form-select" asp-items="@(new SelectList(statuses))"></select>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label asp-for="AssignedDate" class="form-label"></label>
+                        <input asp-for="AssignedDate" type="date" class="form-control" />
+                    </div>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Create Assignment</button>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+}
