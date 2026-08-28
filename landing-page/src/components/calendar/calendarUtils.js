@@ -60,8 +60,13 @@ export function startOfWeekSunday(value) {
 
 export function monthCells(value) {
   const first = new Date(value.getFullYear(), value.getMonth(), 1)
-  const start = startOfWeekSunday(first)
-  return Array.from({ length: 42 }, (_, i) => addDays(start, i))
+  const lead = first.getDay()
+  const daysInMonth = new Date(value.getFullYear(), value.getMonth() + 1, 0).getDate()
+  const cells = []
+  for (let i = 0; i < lead; i++) cells.push(null)
+  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(value.getFullYear(), value.getMonth(), d))
+  while (cells.length % 7 !== 0) cells.push(null)
+  return cells
 }
 
 export function weekDays(value) {

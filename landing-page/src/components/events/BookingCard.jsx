@@ -49,7 +49,7 @@ function AssignmentGrid({ rows, teamOptions, venueOptions, onRowChange }) {
   )
 }
 
-export default function BookingCard({ booking, expandedDefault, teamOptions, venueOptions, rows: controlledRows, onRowsChange }) {
+export default function BookingCard({ booking, expandedDefault, teamOptions, venueOptions, rows: controlledRows, onRowsChange, onAddRow }) {
   const [expanded, setExpanded] = useState(expandedDefault)
   const [internalRows, setInternalRows] = useState(booking.rows)
   const rows = controlledRows ?? internalRows
@@ -123,6 +123,15 @@ export default function BookingCard({ booking, expandedDefault, teamOptions, ven
             balance is due 7 days before the event. Notes content will go here and will not truncate.
           </p>
           <AssignmentGrid rows={rows} teamOptions={teamOptions} venueOptions={venueOptions} onRowChange={onRowChange} />
+          {onAddRow && (
+            <button
+              type="button"
+              onClick={onAddRow}
+              className="mt-1 inline-flex items-center gap-1.5 py-2 text-sm font-medium text-gray-400 dark:text-[#6B7280] hover:text-[#FF2B66] transition-colors"
+            >
+              <Plus size={16} /> Add staff
+            </button>
+          )}
         </div>
       )}
     </div>

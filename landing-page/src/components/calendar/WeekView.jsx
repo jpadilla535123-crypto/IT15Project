@@ -32,32 +32,26 @@ export default function WeekView({ viewDate, events, onSelect }) {
 
   return (
     <section className="rounded-2xl border border-gray-200 dark:border-[#2A2A36] bg-white dark:bg-[#121217] overflow-hidden flex flex-col h-full">
-      <div className="grid grid-cols-7 border-b border-gray-200 dark:border-[#2A2A36]">
-        {days.map(d => {
-          const isToday = sameDay(d, today)
-          return (
-            <div key={dateKey(d)} className={`py-2.5 text-center border-r border-gray-100 dark:border-[#2A2A36]/60 ${isToday ? 'bg-[#FF2B66]/5' : ''}`}>
-              <p className={`text-[11px] font-bold uppercase tracking-widest ${isToday ? 'text-[#FF2B66]' : 'text-gray-400 dark:text-[#6B7280]'}`}>
-                {DAY_LETTERS[d.getDay()]}
-              </p>
-              <p className={`text-sm font-bold mt-0.5 ${isToday ? 'text-[#FF2B66]' : 'text-gray-900 dark:text-white'}`}>{d.getDate()}</p>
-            </div>
-          )
-        })}
-      </div>
-
-      <div className="grid grid-cols-7 flex-1 min-h-0">
+      <div className="flex flex-1 min-h-0">
         {days.map(d => {
           const isToday = sameDay(d, today)
           const list = (groups.get(dateKey(d)) || []).slice().sort((a, b) => String(a.StartTime).localeCompare(String(b.StartTime)))
           return (
-            <div key={dateKey(d)} className={`min-h-0 overflow-y-auto border-r border-gray-100 dark:border-[#2A2A36]/60 p-2 last:border-r-0 ${isToday ? 'bg-[#FF2B66]/5 dark:bg-[#FF2B66]/5' : ''}`}>
-              <div className="pb-px space-y-1.5">
-                {list.length === 0 ? (
-                  <p className="text-[11px] text-gray-300 dark:text-[#4B5563] text-center pt-8">—</p>
-                ) : (
-                  list.map(e => <WeekEvent key={e.Id} event={e} onSelect={onSelect} />)
-                )}
+            <div key={dateKey(d)} className={`flex flex-col min-w-0 flex-1 border-r border-gray-100 dark:border-[#2A2A36]/60 last:border-r-0 ${isToday ? 'bg-[#FF2B66]/5 dark:bg-[#FF2B66]/5' : ''}`}>
+              <div className={`shrink-0 border-b border-gray-100 dark:border-[#2A2A36]/60 px-2 py-2.5 text-center ${isToday ? 'bg-[#FF2B66]/5' : ''}`}>
+                <p className={`text-[11px] font-bold uppercase tracking-widest ${isToday ? 'text-[#FF2B66]' : 'text-gray-400 dark:text-[#6B7280]'}`}>
+                  {DAY_LETTERS[d.getDay()]}
+                </p>
+                <p className={`text-sm font-bold mt-0.5 ${isToday ? 'text-[#FF2B66]' : 'text-gray-900 dark:text-white'}`}>{d.getDate()}</p>
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto p-2">
+                <div className="pb-px space-y-1.5">
+                  {list.length === 0 ? (
+                    <p className="text-[11px] text-gray-300 dark:text-[#4B5563] text-center pt-8">—</p>
+                  ) : (
+                    list.map(e => <WeekEvent key={e.Id} event={e} onSelect={onSelect} />)
+                  )}
+                </div>
               </div>
             </div>
           )

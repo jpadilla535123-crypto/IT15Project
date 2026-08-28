@@ -28,10 +28,10 @@ function MiniMonth({ year, month, groups, today, onJumpDay }) {
             <button key={i} onClick={() => onJumpDay(d)}
               className={`relative h-7 flex flex-col items-center justify-center rounded-md text-[11px] font-semibold transition-colors ${
                 isToday ? 'bg-[#FF2B66] text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5'
-              }`}>
+              } ${hasEvent && !isToday ? 'hover:bg-emerald-50 dark:hover:bg-emerald-500/10' : ''}`}>
               {d.getDate()}
               {hasEvent && (
-                <span className={`absolute bottom-1 h-1 w-1 rounded-full ${isToday ? 'bg-white' : 'bg-emerald-500'}`} />
+                <span className={`absolute bottom-0.5 h-[3px] w-3 rounded-full ${isToday ? 'bg-white' : 'bg-emerald-500'}`} />
               )}
             </button>
           )

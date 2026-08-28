@@ -4,7 +4,7 @@ import {
   Phone, Pencil, Check,
 } from 'lucide-react'
 
-const PAGE_SIZE = 5
+const PAGE_SIZE = 10
 
 const EDIT_OPTIONS = ['Contacted', 'Confirmed Appointment', 'Lost']
 

@@ -56,7 +56,7 @@ export default function AvatarSelect({ options, value, onSelect, placeholder, va
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <ul className="absolute z-50 mt-1.5 w-full max-h-56 overflow-y-auto rounded-xl border border-gray-200 dark:border-[#2A2A36] bg-white dark:bg-[#121217] p-1 shadow-xl">
+          <ul className="blend-scrollbar absolute z-50 mt-1.5 w-full max-h-56 overflow-y-auto rounded-xl border border-gray-200 dark:border-[#2A2A36] bg-white dark:bg-[#121217] p-1 shadow-xl">
             {options.map(o => {
               const isSel = o.id === value
               return (

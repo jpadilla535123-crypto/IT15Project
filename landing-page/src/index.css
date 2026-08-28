@@ -29,6 +29,24 @@
   display: none;
 }
 
+.blend-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(107, 114, 128, 0.35) transparent;
+}
+.blend-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+.blend-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.blend-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(107, 114, 128, 0.35);
+  border-radius: 9999px;
+}
+.blend-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(107, 114, 128, 0.55);
+}
+
 @layer components {
   .btn-primary {
     @apply bg-accent hover:bg-accent-hover text-white font-semibold px-6 py-3 rounded-full transition-all duration-300 hover:shadow-lg hover:shadow-accent/25;

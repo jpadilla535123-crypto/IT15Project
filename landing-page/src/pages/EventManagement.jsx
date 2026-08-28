@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import AppLayout from './AppLayout'
-import BookingSectionHeader from '../components/events/BookingSectionHeader'
 import BookingsTable from '../components/events/BookingsTable'
 import EventDetailDrawer from '../components/events/EventDetailDrawer'
 import { dashboardData } from '../components/dashboard/sampleData'
@@ -47,11 +46,6 @@ export default function EventManagement({ user }) {
             Book events, pick venues, assign your team, and manage payments.
           </p>
         </div>
-
-        <BookingSectionHeader
-          title="Booking"
-          subtitle="A list of all events booked through EventSphere."
-        />
 
         <div className="flex-1 min-h-0">
           <BookingsTable events={enrichedEvents} onSelect={e => setSelectedId(e.Id)} />

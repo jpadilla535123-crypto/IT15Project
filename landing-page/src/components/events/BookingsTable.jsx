@@ -4,7 +4,7 @@ import {
 } from 'lucide-react'
 import { EVENT_STATUS_TONES } from './BookedEventCard'
 
-const PAGE_SIZE = 5
+const PAGE_SIZE = 10
 
 const STATUS_ORDER = { New: 0, Pending: 1, Booked: 2, Completed: 3, Cancelled: 4 }
 
@@ -129,12 +129,12 @@ export default function BookingsTable({ events, onSelect }) {
                 onClick={() => clickable && onSelect && onSelect(event)}
                 className={`transition-colors ${clickable ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.02]' : 'opacity-60'} ${selected.has(event.Id) ? 'bg-[#FF2B66]/5' : ''}`}
               >
-                <td className="px-3 py-3.5 w-10">
+                <td className="px-3 py-4 w-10">
                   <input type="checkbox" checked={selected.has(event.Id)} onChange={() => toggleOne(event.Id)}
                     onClick={e => e.stopPropagation()}
                     className="h-4 w-4 rounded accent-[#FF2B66] cursor-pointer" />
                 </td>
-                <td className="px-3 py-3.5 max-w-[260px]">
+                <td className="px-3 py-4 max-w-[260px]">
                   <div className="flex items-center gap-2.5">
                     <div className="h-8 w-8 shrink-0 rounded-lg bg-[#FF2B66]/10 text-[#FF2B66] flex items-center justify-center">
                       <CalendarDays size={14} />
@@ -142,19 +142,19 @@ export default function BookingsTable({ events, onSelect }) {
                     <span className="truncate font-semibold text-gray-900 dark:text-white">{event.Name}</span>
                   </div>
                 </td>
-                <td className="px-3 py-3.5 max-w-[180px]">
+                <td className="px-3 py-4 max-w-[180px]">
                   <span className="block truncate text-gray-600 dark:text-gray-300">{event.ClientName || '—'}</span>
                 </td>
-                <td className="px-3 py-3.5 text-[13px] whitespace-nowrap text-gray-500 dark:text-[#9CA3AF]">
+                <td className="px-3 py-4 text-[13px] whitespace-nowrap text-gray-500 dark:text-[#9CA3AF]">
                   {event.StartTime} · {schedule}
                 </td>
-                <td className="px-3 py-3.5 max-w-[160px]">
+                <td className="px-3 py-4 max-w-[160px]">
                   <span className="block truncate text-[13px] text-gray-500 dark:text-[#9CA3AF]">{event.VenueName || '—'}</span>
                 </td>
-                <td className="px-3 py-3.5 text-[13px] whitespace-nowrap text-gray-500 dark:text-[#9CA3AF]">
+                <td className="px-3 py-4 text-[13px] whitespace-nowrap text-gray-500 dark:text-[#9CA3AF]">
                   {event.Guests ? `${event.Guests.toLocaleString()} guests` : '—'}
                 </td>
-                <td className="px-3 py-3.5 text-right whitespace-nowrap">{statusBadge(event.Status)}</td>
+                <td className="px-3 py-4 text-right whitespace-nowrap">{statusBadge(event.Status)}</td>
               </tr>
             )
           })}

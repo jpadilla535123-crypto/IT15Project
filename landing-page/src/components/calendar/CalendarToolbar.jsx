@@ -2,7 +2,6 @@ import { ChevronLeft, ChevronRight, Plus, SlidersHorizontal } from 'lucide-react
 import FilterPopover from './FilterPopover'
 
 const VIEWS = [
-  { key: 'week', label: 'Week' },
   { key: 'month', label: 'Month' },
   { key: 'year', label: 'Year' },
 ]
@@ -27,12 +26,11 @@ export default function CalendarToolbar(props) {
             {v.label}
           </button>
         ))}
+        <button onClick={onToday}
+          className="rounded-lg px-3.5 py-1.5 text-xs font-bold text-gray-500 dark:text-[#9CA3AF] hover:text-[#FF2B66] transition-colors">
+          Today
+        </button>
       </div>
-
-      <button onClick={onToday}
-        className="rounded-xl border border-gray-200 dark:border-[#2A2A36] bg-white dark:bg-[#121217] px-3.5 py-1.5 text-xs font-semibold text-gray-600 dark:text-gray-200 hover:border-[#FF2B66]/50 hover:text-[#FF2B66] transition-colors">
-        Today
-      </button>
 
       <div className="flex items-center gap-1 ml-1">
         <button onClick={() => onNavigate(-1)}

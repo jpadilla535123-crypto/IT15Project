@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { monthCells, sameDay, isSameMonth, dateKey, statusMeta, formatTime12 } from './calendarUtils'
+import { monthCells, sameDay, dateKey, statusMeta, formatTime12 } from './calendarUtils'
 
 const DAY_LETTERS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 
@@ -14,16 +14,16 @@ function MiniEvent({ event, onSelect }) {
   )
 }
 
-function DayCell({ date, eventsList, isCurrentMonth, isToday, onSelect, onMore }) {
+function DayCell({ date, eventsList, isToday, onSelect, onMore }) {
   const M = 3
   const visible = eventsList.slice(0, 2)
   const more = eventsList.length - visible.length
 
   return (
-    <div className={`min-h-0 overflow-hidden bg-white dark:bg-[#121217] p-1.5 flex flex-col ${isCurrentMonth ? '' : 'opacity-60'} ${isToday ? 'bg-[#FF2B66]/5 dark:bg-[#FF2B66]/5' : ''}`}>
+    <div className={`min-h-0 overflow-hidden bg-white dark:bg-[#121217] p-1.5 flex flex-col ${isToday ? 'bg-[#FF2B66]/5 dark:bg-[#FF2B66]/5' : ''}`}>
       <div className="flex items-center justify-between mb-1">
         <span className={`h-6 w-6 flex items-center justify-center rounded-full text-xs font-bold ${
-          isToday ? 'bg-[#FF2B66] text-white' : isCurrentMonth ? 'text-gray-600 dark:text-gray-300' : 'text-gray-300 dark:text-[#4B5563]'
+          isToday ? 'bg-[#FF2B66] text-white' : 'text-gray-600 dark:text-gray-300'
         }`}>
           {date.getDate()}
         </span>
@@ -71,17 +71,20 @@ export default function MonthView({ viewDate, events, onSelect, onMore }) {
       </div>
 
       <div className="grid grid-cols-7 auto-rows-fr gap-px bg-gray-100 dark:bg-[#2A2A36] flex-1 min-h-0 overflow-hidden">
-        {cells.map((d, i) => (
-          <DayCell
-            key={i}
-            date={d}
-            isCurrentMonth={isSameMonth(d, viewDate)}
-            isToday={sameDay(d, today)}
-            eventsList={groups.get(dateKey(d)) || []}
-            onSelect={onSelect}
-            onMore={onMore}
-          />
-        ))}
+        {cells.map((d, i) =>
+          d ? (
+            <DayCell
+              key={i}
+              date={d}
+              isToday={sameDay(d, today)}
+              eventsList={groups.get(dateKey(d)) || []}
+              onSelect={onSelect}
+              onMore={onMore}
+            />
+          ) : (
+            <div key={i} className="bg-white dark:bg-[#121217]" />
+          )
+        )}
       </div>
     </section>
   )

@@ -2,13 +2,10 @@ import { useMemo, useState } from 'react'
 import AppLayout from './AppLayout'
 import CalendarToolbar from '../components/calendar/CalendarToolbar'
 import MonthView from '../components/calendar/MonthView'
-import WeekView from '../components/calendar/WeekView'
 import YearView from '../components/calendar/YearView'
 import EventDetailPanel from '../components/calendar/EventDetailPanel'
 import NewEventModal from '../components/calendar/NewEventModal'
 import DayEventsModal from '../components/calendar/DayEventsModal'
-import { weekDays } from '../components/calendar/calendarUtils'
-import { formatMonthDay } from '../components/dashboard/format'
 import { dashboardData } from '../components/dashboard/sampleData'
 
 export default function EventCalendar({ user }) {
@@ -53,18 +50,13 @@ export default function EventCalendar({ user }) {
   const selected = enriched.find(e => e.Id === selectedId) || null
 
   const title = useMemo(() => {
-    if (view === 'week') {
-      const days = weekDays(viewDate)
-      return `${formatMonthDay(days[0])} – ${formatMonthDay(days[6])}, ${days[6].getFullYear()}`
-    }
     if (view === 'year') return String(viewDate.getFullYear())
     return viewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
   }, [view, viewDate])
 
   function navigate(dir) {
     const d = new Date(viewDate)
-    if (view === 'week') d.setDate(d.getDate() + 7 * dir)
-    else if (view === 'year') d.setFullYear(d.getFullYear() + dir)
+    if (view === 'year') d.setFullYear(d.getFullYear() + dir)
     else d.setMonth(d.getMonth() + dir)
     setViewDate(d)
   }
@@ -118,9 +110,6 @@ export default function EventCalendar({ user }) {
         <div className="flex-1 min-h-0">
           {view === 'month' && (
             <MonthView viewDate={viewDate} events={enriched} onSelect={handleSelect} onMore={handleMore} />
-          )}
-          {view === 'week' && (
-            <WeekView viewDate={viewDate} events={enriched} onSelect={handleSelect} />
           )}
           {view === 'year' && (
             <YearView viewDate={viewDate} events={events} onJumpDay={d => { setView('month'); setViewDate(d) }} />
