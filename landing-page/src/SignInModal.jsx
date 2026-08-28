@@ -8,7 +8,7 @@ import {
 } from 'firebase/auth'
 import { auth, googleProvider } from './firebase'
 
-export default function SignInModal({ open, onClose }) {
+export default function SignInModal({ open, onClose, onSuccess }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(false)
@@ -36,6 +36,7 @@ export default function SignInModal({ open, onClose }) {
     try {
       await signInWithPopup(auth, googleProvider)
       handleClose()
+      onSuccess?.()
     } catch (err) {
       if (err.code !== 'auth/popup-closed-by-user') {
         setError(err.message)
@@ -57,6 +58,7 @@ export default function SignInModal({ open, onClose }) {
         await signInWithEmailAndPassword(auth, email, password)
       }
       handleClose()
+      onSuccess?.()
     } catch (err) {
       const msg = {
         'auth/user-not-found': 'No account found with this email.',

@@ -5,3 +5,7 @@ node_modules/
 .vscode/
 *.user
 appsettings.Development.json
+*.db
+*.db-shm
+*.db-wal
+landing-page/dist/
