@@ -75,15 +75,18 @@ jobs:
           print("web.config patched and VALID")
           PY
 
-      - name: Clear any stuck app_offline.htm (best effort)
+      - name: Take app offline
         shell: bash
         run: |
-          curl -sS --user "${{ secrets.FTP_LOGIN }}:${{ secrets.FTP_PASSWORD }}" \
-            "ftp://${{ secrets.FTP_HOST }}/" \
-            --quote "CWD /wwwroot" \
-            --quote "DELE app_offline.htm" \
-            --connect-timeout 30 --max-time 60 -o /dev/null \
-            || echo "(nothing to clear)"
+          printf '%s' '<!DOCTYPE html><html><body>Server updating - please wait.</body></html>' > app_offline.htm
+          curl -sS --connect-timeout 30 --max-time 60 \
+            --user "${{ secrets.FTP_LOGIN }}:${{ secrets.FTP_PASSWORD }}" \
+            -T app_offline.htm \
+            "ftp://${{ secrets.FTP_HOST }}/wwwroot/app_offline.htm"
+
+      - name: Wait for worker shutdown
+        shell: bash
+        run: sleep 5
 
       - name: Upload application files
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
@@ -97,6 +100,17 @@ jobs:
           dangerous-clean-slate: false
           exclude: '**/logs/**'
           timeout: 300000
+
+      - name: Bring app back online
+        shell: bash
+        run: |
+          curl -sS --connect-timeout 30 --max-time 60 -o /dev/null \
+            --user "${{ secrets.FTP_LOGIN }}:${{ secrets.FTP_PASSWORD }}" \
+            "ftp://${{ secrets.FTP_HOST }}/" \
+            --quote "CWD /wwwroot" \
+            --quote "DELE app_offline.htm" \
+            && echo "app_offline.htm removed" \
+            || { echo "ERROR: could not remove app_offline.htm - site stays offline"; exit 1; }
 
       - name: Smoke test API
         continue-on-error: true
