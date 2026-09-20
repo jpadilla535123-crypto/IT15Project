@@ -63,8 +63,16 @@ Directory.CreateDirectory(Path.Combine(webRoot, "uploads", "suppliers"));
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
-    SampleData.Seed(db);
+    try
+    {
+        db.Database.Migrate();
+        SampleData.Seed(db);
+    }
+    catch (Exception ex)
+    {
+        System.IO.File.WriteAllText(Path.Combine(webRoot, "startup-error.txt"), ex.ToString());
+        app.Logger.LogError(ex, "Database startup failed");
+    }
 }
 
 app.UseCors("AllowFrontend");
