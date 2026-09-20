@@ -98,8 +98,11 @@ jobs:
         run: |
           curl -sS --user "${{ secrets.FTP_LOGIN }}:${{ secrets.FTP_PASSWORD }}" \
             "ftp://${{ secrets.FTP_HOST }}/" \
+            --quote "CWD /wwwroot" \
             --quote "DELE app_offline.htm" \
-            --connect-timeout 30 --max-time 60 -o /dev/null || echo "WARN: could not remove app_offline.htm (app may still be offline)"
+            --connect-timeout 30 --max-time 60 -o /dev/null \
+            && echo "app_offline.htm removed" \
+            || { echo "ERROR: could not remove app_offline.htm - site stays offline"; exit 1; }
 
       - name: Smoke test API
         continue-on-error: true

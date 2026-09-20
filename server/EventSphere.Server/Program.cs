@@ -70,7 +70,6 @@ using (var scope = app.Services.CreateScope())
     }
     catch (Exception ex)
     {
-        System.IO.File.WriteAllText(Path.Combine(webRoot, "startup-error.txt"), ex.ToString());
         app.Logger.LogError(ex, "Database startup failed");
     }
 }
