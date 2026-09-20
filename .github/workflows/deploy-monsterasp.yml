@@ -49,7 +49,7 @@ jobs:
             > publish/appsettings.Production.json
           echo "appsettings.Production.json generated"
 
-      - name: Force Production environment in web.config
+      - name: Configure web.config (Production env + stdout log)
         shell: bash
         run: |
           python3 - <<'PY'
@@ -57,16 +57,20 @@ jobs:
           p = "publish/web.config"
           with open(p, "r", encoding="utf-8") as f:
               c = f.read()
-          if "<environmentVariables>" not in c:
-              c = re.sub(
-                  r"(<aspNetCore[^>]*>)",
-                  r'\1\n    <environmentVariables>\n      <environmentVariable name="ASPNETCORE_ENVIRONMENT" value="Production" />\n    </environmentVariables>',
-                  c,
-                  count=1,
-              )
-              with open(p, "w", encoding="utf-8") as f:
-                  f.write(c)
-          print("web.config now forces ASPNETCORE_ENVIRONMENT=Production")
+          tag = re.search(r"<aspNetCore[^>]*/>", c)
+          if not tag:
+              raise SystemExit("aspNetCore tag not found")
+          attrs = tag.group(0).rstrip("/>").rstrip()
+          attrs = attrs.replace('stdoutLogEnabled="false"', 'stdoutLogEnabled="true"')
+          new_tag = attrs + ' stdoutLogFile=".\\wwwroot\\logs\\stdout">\n' + \
+              '    <environmentVariables>\n' + \
+              '      <environmentVariable name="ASPNETCORE_ENVIRONMENT" value="Production" />\n' + \
+              '    </environmentVariables>\n' + \
+              '  </aspNetCore>'
+          c = c[:tag.start()] + new_tag + c[tag.end():]
+          with open(p, "w", encoding="utf-8") as f:
+              f.write(c)
+          print("web.config patched")
           PY
 
       - name: Stage app_offline.htm
