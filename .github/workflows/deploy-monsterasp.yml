@@ -81,7 +81,7 @@ jobs:
           username: ${{ secrets.FTP_LOGIN }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: server/EventSphere.Server/publish/
-          server-dir: ./
+          server-dir: ./wwwroot/
           protocol: ftp
           dangerous-clean-slate: false
           timeout: 300000
