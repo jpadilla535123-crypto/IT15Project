@@ -40,15 +40,25 @@ export function SidebarNav({ role, theme, onToggleTheme, onNavigateAfter }) {
   const [activeLocal, setActiveLocal] = useState('Dashboard')
   const navigate = useNavigate()
   const location = useLocation()
-  const active = ROUTE_LABELS[location.pathname] || activeLocal
+  const isStaff = role === 'Staff'
+
+  const active = (isStaff && location.pathname === '/calendar')
+    ? 'Calendar'
+    : ROUTE_LABELS[location.pathname] || activeLocal
 
   const allowed = ROLE_PERMISSIONS[role] || []
-  const visibleSections = NAV_SECTIONS
-    .map(section => ({
-      ...section,
-      items: section.items.filter(item => allowed.includes(item.path)),
-    }))
-    .filter(section => section.items.length > 0)
+
+  const visibleSections = isStaff
+    ? [{ title: null, items: [
+        { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
+        { label: 'Calendar', icon: CalendarRange, path: '/calendar' },
+      ] }]
+    : NAV_SECTIONS
+      .map(section => ({
+        ...section,
+        items: section.items.filter(item => allowed.includes(item.path)),
+      }))
+      .filter(section => section.items.length > 0)
 
   function handleClick(item) {
     if (item.path) navigate(item.path)

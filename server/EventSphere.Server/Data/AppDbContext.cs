@@ -22,6 +22,9 @@ public class AppDbContext : DbContext
     public DbSet<Registration> Registrations => Set<Registration>();
     public DbSet<SupplierPayment> SupplierPayments => Set<SupplierPayment>();
     public DbSet<ReportSchedule> ReportSchedules => Set<ReportSchedule>();
+    public DbSet<Attendance> Attendance => Set<Attendance>();
+    public DbSet<LeaveBalance> LeaveBalances => Set<LeaveBalance>();
+    public DbSet<Payslip> Payslips => Set<Payslip>();
     public DbSet<User> Users => Set<User>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -127,6 +130,34 @@ public class AppDbContext : DbContext
             u.Property(x => x.PasswordHash).HasMaxLength(400);
             u.Property(x => x.Role).HasMaxLength(32);
             u.HasIndex(x => x.Email).IsUnique();
+            u.HasOne(x => x.Employee).WithMany().HasForeignKey(x => x.EmployeeId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<Attendance>(a =>
+        {
+            a.Property(x => x.Status).HasMaxLength(32);
+            a.Property(x => x.ClockIn).HasMaxLength(8);
+            a.Property(x => x.ClockOut).HasMaxLength(8);
+            a.Property(x => x.Notes).HasMaxLength(300);
+            a.HasOne(x => x.Employee).WithMany().HasForeignKey(x => x.EmployeeId);
+            a.HasIndex(x => new { x.EmployeeId, x.WorkDate }).IsUnique();
+        });
+
+        modelBuilder.Entity<LeaveBalance>(lb =>
+        {
+            lb.HasOne(x => x.Employee).WithMany().HasForeignKey(x => x.EmployeeId);
+            lb.HasIndex(x => new { x.EmployeeId, x.Year }).IsUnique();
+        });
+
+        modelBuilder.Entity<Payslip>(p =>
+        {
+            p.Property(x => x.Status).HasMaxLength(32);
+            p.Property(x => x.DailyRate).HasPrecision(18, 2);
+            p.Property(x => x.GrossPay).HasPrecision(18, 2);
+            p.Property(x => x.Deductions).HasPrecision(18, 2);
+            p.Property(x => x.NetPay).HasPrecision(18, 2);
+            p.HasOne(x => x.Employee).WithMany().HasForeignKey(x => x.EmployeeId);
+            p.HasIndex(x => new { x.EmployeeId, x.Year, x.Month }).IsUnique();
         });
 
         modelBuilder.Entity<Registration>(r =>

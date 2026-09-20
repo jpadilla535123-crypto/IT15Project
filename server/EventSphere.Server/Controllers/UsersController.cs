@@ -34,7 +34,7 @@ public class UsersController : ControllerBase
     {
         var users = await _db.Users
             .OrderBy(u => u.Email)
-            .Select(u => new { u.Id, u.Email, u.FullName, u.Role, u.IsActive })
+            .Select(u => new { u.Id, u.Email, u.FullName, u.Role, u.IsActive, u.EmployeeId })
             .ToListAsync();
 
         return Ok(new { items = users, total = users.Count, page = 1, pageSize = users.Count, totalPages = 1 });
@@ -60,6 +60,7 @@ public class UsersController : ControllerBase
             FullName = request.FullName.Trim(),
             Role = role,
             IsActive = true,
+            EmployeeId = request.EmployeeId,
             PasswordHash = _hasher.HashPassword(new User(), request.Password),
         };
 
@@ -75,6 +76,6 @@ public class UsersController : ControllerBase
         await _db.SaveChangesAsync();
 
         return CreatedAtAction(nameof(GetAll), new { id = user.Id },
-            new { user.Id, user.Email, user.FullName, user.Role, user.IsActive });
+            new { user.Id, user.Email, user.FullName, user.Role, user.IsActive, user.EmployeeId });
     }
 }

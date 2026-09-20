@@ -1,6 +1,7 @@
 using EventSphere.Server.Data;
 using EventSphere.Server.Models;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace EventSphere.Server.Extensions;
 
@@ -11,14 +12,20 @@ public static class SampleData
     public static void Seed(AppDbContext db)
     {
         if (db.Clients.Any() && db.Users.Any())
+        {
+            SeedStaffHR(db);
             return;
+        }
 
         var today = DateTime.Today;
 
         SeedUsers(db);
 
         if (db.Clients.Any())
+        {
+            SeedStaffHR(db);
             return;
+        }
 
         var clients = new List<Client>
         {
@@ -152,6 +159,8 @@ public static class SampleData
         });
 
         db.SaveChanges();
+
+        SeedStaffHR(db);
     }
 
     private static void SeedUsers(AppDbContext db)
@@ -173,6 +182,170 @@ public static class SampleData
             user.PasswordHash = hasher.HashPassword(user, Password);
 
         db.Users.AddRange(users);
+        db.SaveChanges();
+    }
+
+    /* Demo HR layer for the staff portal: links the staff@ login to an Employee,
+       then builds three months of attendance, leave balances and payslips.
+       Runs after the main seed so it works on both fresh and live databases.
+       Each block is guarded so it never overwrites real HR data. */
+    private static void SeedStaffHR(AppDbContext db)
+    {
+        var today = DateTime.Today;
+
+        var staff = db.Users.FirstOrDefault(u => u.Email == "staff@eventsphere.ph");
+        var nathan = db.Employees.FirstOrDefault(e => e.Email == "nathan.lopez@eventsphere.ph");
+        if (staff != null && nathan != null && staff.EmployeeId == null)
+        {
+            staff.EmployeeId = nathan.Id;
+            staff.FullName = nathan.FullName;
+            staff.UpdatedAt = DateTime.UtcNow;
+            db.SaveChanges();
+        }
+
+        var employees = db.Employees.ToList();
+        if (employees.Count == 0)
+            return;
+
+        if (!db.Attendance.Any())
+        {
+            var assignments = db.EmployeeAssignments.Include(a => a.Event).ToList();
+
+            var baseMonth = new DateTime(today.Year, today.Month, 1);
+            var months = Enumerable.Range(0, 3).Select(i => baseMonth.AddMonths(-2 + i)).ToList();
+
+            var rows = new List<Attendance>();
+
+            for (var i = 0; i < employees.Count; i++)
+            {
+                var employee = employees[i];
+                if (employee.HireDate > today.AddMonths(-3))
+                    continue;
+
+                foreach (var month in months)
+                {
+                    var monthOffset = months.IndexOf(month);
+                    var absDay = 7 + (i + monthOffset) % 5;
+                    var leaveDay = 12 + (i + monthOffset) % 3;
+                    var lateDays = new[] { 3 + (i + monthOffset) % 7, 18 };
+
+                    for (var day = 1; day <= DateTime.DaysInMonth(month.Year, month.Month); day++)
+                    {
+                        var d = new DateTime(month.Year, month.Month, day);
+                        if (d > today || d < employee.HireDate)
+                            continue;
+
+                        var isWeekend = d.DayOfWeek == DayOfWeek.Saturday || d.DayOfWeek == DayOfWeek.Sunday;
+                        var eventAssignment = assignments.FirstOrDefault(a => a.EmployeeId == employee.Id
+                            && d >= a.Event!.StartDate.Date && d <= a.Event!.EndDate.Date);
+
+                        if (eventAssignment?.Event != null)
+                        {
+                            rows.Add(new Attendance
+                            {
+                                EmployeeId = employee.Id,
+                                WorkDate = d,
+                                Status = AttendanceStatus.Present,
+                                Notes = $"On duty — {eventAssignment.Event.Name}",
+                            });
+                            continue;
+                        }
+
+                        if (isWeekend)
+                            continue;
+
+                        var status = AttendanceStatus.Present;
+                        string? notes = null;
+
+                        if (day == absDay)
+                            status = AttendanceStatus.Absent;
+                        else if (day == leaveDay)
+                        {
+                            status = AttendanceStatus.Leave;
+                            notes = "Filed leave";
+                        }
+                        else if (lateDays.Contains(day))
+                            status = AttendanceStatus.Late;
+
+                        rows.Add(new Attendance
+                        {
+                            EmployeeId = employee.Id,
+                            WorkDate = d,
+                            Status = status,
+                            Notes = notes,
+                        });
+                    }
+                }
+            }
+
+            db.AddRange(rows);
+        }
+
+        if (!db.LeaveBalances.Any())
+        {
+            var balances = new List<LeaveBalance>();
+            for (var i = 0; i < employees.Count; i++)
+            {
+                balances.Add(new LeaveBalance
+                {
+                    EmployeeId = employees[i].Id,
+                    Year = today.Year,
+                    TotalDays = 15,
+                    UsedDays = i % 4 + 1,
+                });
+            }
+            db.AddRange(balances);
+        }
+
+        if (!db.Payslips.Any())
+        {
+            var payslips = new List<Payslip>();
+            var baseMonth = new DateTime(today.Year, today.Month, 1);
+
+            foreach (var employee in employees)
+            {
+                for (var i = 0; i < 3; i++)
+                {
+                    var periodStart = baseMonth.AddMonths(-2 + i);
+                    var periodEnd = periodStart.AddMonths(1).AddDays(-1);
+                    if (periodEnd < employee.HireDate)
+                        continue;
+
+                    var attendanceInMonth = db.Attendance
+                        .Where(a => a.EmployeeId == employee.Id
+                            && a.WorkDate >= periodStart && a.WorkDate <= periodEnd)
+                        .ToList();
+                    var daysWorked = attendanceInMonth.Count(a => a.Status == AttendanceStatus.Present || a.Status == AttendanceStatus.Late);
+                    var absents = attendanceInMonth.Count(a => a.Status == AttendanceStatus.Absent);
+                    if (daysWorked == 0 && absents == 0)
+                        continue;
+
+                    var dailyRate = Math.Round(employee.Salary / 22m, 2);
+                    var gross = daysWorked * dailyRate;
+                    var deductions = Math.Round(gross * 0.115m, 2);
+
+                    payslips.Add(new Payslip
+                    {
+                        EmployeeId = employee.Id,
+                        Month = periodStart.Month,
+                        Year = periodStart.Year,
+                        PeriodStart = periodStart,
+                        PeriodEnd = periodEnd,
+                        DaysWorked = daysWorked,
+                        Absents = absents,
+                        DailyRate = dailyRate,
+                        GrossPay = gross,
+                        Deductions = deductions,
+                        NetPay = gross - deductions,
+                        Status = "Generated",
+                        GeneratedAt = DateTime.UtcNow.AddDays(-(2 - i)),
+                    });
+                }
+            }
+
+            db.AddRange(payslips);
+        }
+
         db.SaveChanges();
     }
 }

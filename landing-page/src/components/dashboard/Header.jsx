@@ -50,13 +50,19 @@ export default function Header({ user, badgeCount = 0, searchValue, onSearchChan
         </div>
 
         <div className="hidden md:flex flex-1 max-w-xl items-center gap-2.5 rounded-xl bg-gray-100 dark:bg-[#121217] px-3.5 py-2.5 border border-transparent focus-within:border-[#FF2B66]/50 transition-colors">
-          <Search size={16} className="text-gray-400 dark:text-[#6B7280]" />
-          <input
-            value={query}
-            onChange={handleSearch}
-            placeholder="Search events, clients, venues..."
-            className="w-full bg-transparent text-sm outline-none placeholder:text-gray-400 dark:placeholder:text-[#6B7280] text-gray-900 dark:text-white"
-          />
+          {role !== 'Staff' ? (
+            <>
+              <Search size={16} className="text-gray-400 dark:text-[#6B7280]" />
+              <input
+                value={query}
+                onChange={handleSearch}
+                placeholder="Search events, clients, venues..."
+                className="w-full bg-transparent text-sm outline-none placeholder:text-gray-400 dark:placeholder:text-[#6B7280] text-gray-900 dark:text-white"
+              />
+            </>
+          ) : (
+            <span className="text-sm text-gray-400 dark:text-[#6B7280]">My workspace</span>
+          )}
         </div>
 
         <div className="flex items-center gap-2.5">

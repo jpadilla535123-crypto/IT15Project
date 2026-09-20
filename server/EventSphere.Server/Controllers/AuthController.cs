@@ -44,7 +44,7 @@ public class AuthController : ControllerBase
         return Ok(new
         {
             token = _tokens.CreateToken(user),
-            user = new { user.Id, user.Email, user.FullName, user.Role }
+            user = new { user.Id, user.Email, user.FullName, user.Role, user.EmployeeId }
         });
     }
 }

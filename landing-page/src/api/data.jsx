@@ -230,6 +230,13 @@ export function DataProvider({ children }) {
     setLoading(true)
     setError(false)
     try {
+      /* Staff use the dedicated staff portal endpoints (api/staff/*) and never
+         need the company-wide dataset, so skip the bulk load entirely. */
+      if (user?.role === 'Staff') {
+        setData({ ...EMPTY, assignmentRows: [], assignments: {} })
+        return
+      }
+
       /* invoices/payments are Admin/Manager/Finance-only on the backend, so
          fetch them only for those roles; every other endpoint is read-accessible
          to any signed-in role. Supplier-payment reads are also finance-only. */

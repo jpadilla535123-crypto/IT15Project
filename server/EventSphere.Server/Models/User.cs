@@ -16,6 +16,11 @@ public class User : BaseEntity
     public string Role { get; set; } = Roles.Staff;
 
     public bool IsActive { get; set; } = true;
+
+    [Display(Name = "Employee")]
+    public int? EmployeeId { get; set; }
+
+    public Employee? Employee { get; set; }
 }
 
 public static class Roles

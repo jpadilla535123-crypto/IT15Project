@@ -22,7 +22,7 @@ export const ROLE_PERMISSIONS = {
   ],
   Staff: [
     '/dashboard',
-    '/events', '/calendar', '/assignments',
+    '/calendar',
   ],
 }
 

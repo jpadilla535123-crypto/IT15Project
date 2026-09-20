@@ -10,6 +10,8 @@ import Services from './pages/Services'
 import Venues from './pages/Venues'
 import ContactUs from './pages/ContactUs'
 import Dashboard from './pages/Dashboard'
+import StaffDashboard from './pages/staff/StaffDashboard'
+import StaffCalendar from './pages/staff/StaffCalendar'
 import Leads from './pages/Leads'
 import Clients from './pages/Clients'
 import EventCalendar from './pages/EventCalendar'
@@ -63,10 +65,10 @@ function AppRoutes() {
             <Route path="/services" element={<Services />} />
             <Route path="/venues" element={<Venues user={user} />} />
             <Route path="/contact-us" element={<ContactUs user={user} />} />
-            <Route path="/dashboard" element={<GuardedRoute path="/dashboard"><Dashboard user={user} /></GuardedRoute>} />
+            <Route path="/dashboard" element={<GuardedRoute path="/dashboard">{user.role === 'Staff' ? <StaffDashboard user={user} /> : <Dashboard user={user} />}</GuardedRoute>} />
             <Route path="/leads" element={<GuardedRoute path="/leads"><Leads user={user} /></GuardedRoute>} />
             <Route path="/clients" element={<GuardedRoute path="/clients"><Clients user={user} /></GuardedRoute>} />
-            <Route path="/calendar" element={<GuardedRoute path="/calendar"><EventCalendar user={user} /></GuardedRoute>} />
+            <Route path="/calendar" element={<GuardedRoute path="/calendar">{user.role === 'Staff' ? <StaffCalendar user={user} /> : <EventCalendar user={user} />}</GuardedRoute>} />
             <Route path="/events" element={<GuardedRoute path="/events"><EventManagement user={user} /></GuardedRoute>} />
             <Route path="/assignments" element={<GuardedRoute path="/assignments"><EmployeeAssignments user={user} /></GuardedRoute>} />
             <Route path="/venues-mgmt" element={<GuardedRoute path="/venues-mgmt"><VenueManagement user={user} /></GuardedRoute>} />

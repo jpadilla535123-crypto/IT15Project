@@ -9,7 +9,12 @@ All four accounts share the demo password **`EventSphere@2026`**.
 | `admin@eventsphere.ph`   | Admin    | All tabs                                            |
 | `manager@eventsphere.ph` | Manager  | Leads, Clients, Events, Calendar, Assignments, Venues, Suppliers, Employees, Budget, Reports |
 | `finance@eventsphere.ph` | Finance  | Dashboard, Budget, Billing, Reports                 |
-| `staff@eventsphere.ph`   | Staff    | Dashboard, Events, Calendar, Assignments            |
+| `staff@eventsphere.ph`   | Staff    | Dashboard, Calendar (personal, read-only workspace) |
+
+The `staff@` account is linked to the seeded employee **Nathan Lopez**
+(Operations Staff). Its full name on the header shows "Nathan Lopez · Operations
+Staff", and its Dashboard/Calendar show only his data (schedule, attendance,
+leave balance, payslips).
 
 Passwords are stored **hashed** (ASP.NET `PasswordHasher`) in the `Users` table —
 there is no plaintext that can be read in SSMS.
@@ -17,6 +22,30 @@ there is no plaintext that can be read in SSMS.
 ### Changing / resetting a password
 Passwords should be reset through the app (the login/token flows), **not** by
 editing the `PasswordHash` column directly.
+
+## Staff portal (HR data model & endpoints)
+
+New employee-facing tables (migration `AddStaffHR`, auto-applied on startup):
+
+| Table            | Purpose                                              |
+| ---------------- | ---------------------------------------------------- |
+| `Attendance`     | One row per employee per work day (`Present/Late/Absent/Leave/RestDay`) |
+| `LeaveBalances`  | Yearly leave entitlement per employee (`TotalDays`, `UsedDays`) |
+| `Payslips`       | Monthly payslip per employee (days worked, daily rate = Salary÷22, gross, deductions, net) |
+| `Users.EmployeeId` | FK linking a login account to an `Employee` (nullable) |
+
+- Linking an account: set `EmployeeId` on the `Users` row (the Team Member
+  modal already saves it; `POST /api/users` accepts `employeeId`).
+  Without a link, the staff portal returns "No employee profile is linked…".
+- Endpoints (any signed-in role, resolved by the caller's linked employee):
+  - `GET /api/staff/dashboard` — profile + month stats (work days, absences,
+    attendance rate, duty hours, events), upcoming schedule, events worked,
+    recent attendance, leave balance, payslips.
+  - `GET /api/staff/calendar?month=M&year=Y` — expanded per-day shifts and
+    attendance for a month.
+- Staff role permissions on the frontend are **only** `/dashboard` and
+  `/calendar` (`landing-page/src/api/permissions.js`); staff never load the
+  company-wide dataset (`DataProvider` short-circuits for the role).
 
 ## Local database
 
