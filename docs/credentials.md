@@ -59,27 +59,47 @@ editing the `PasswordHash` column directly.
 `REPLACE_WITH_...` placeholders overridden via environment variables — never
 commit real secrets to the repo.
 
-## Production deployment (MonsterASP + Vercel)
+## Production deployment (MonsterASP + Cloudflare + Vercel)
 
 Live services:
 
 | Service | Value |
 | ------- | ----- |
-| API site | `https://eventsphere-backend.runasp.net` (site92718, free plan, x86 runtime) |
+| API site (HTTP origin) | `http://eventsphere-backend.runasp.net` (site92718, free plan, x86 runtime) |
+| HTTPS API (public URL) | `https://eventsphere-api.j-padilla-535123.workers.dev` (Cloudflare Worker proxy, see below) |
+| Frontend | `https://it-15-project.vercel.app` (Vercel, SPA fallback via `vercel.json`) |
 | FTP host | `site92718.siteasp.net` :21, login `site92718`, root `\wwwroot` |
 | WebDeploy | `site92718.siteasp.net` :8172, Site/Login `site92718` |
 | MSSQL (local, used by API) | `db69234.databaseasp.net` :1433, db/login `db69234`, SQL Server 2025 |
 | MSSQL (remote, SSMS) | `db69234.public.databaseasp.net` :1433, db/login `db69234` |
+
+### HTTPS: why the Worker is the public URL
+MonsterASP's **free plan has no HTTPS** (only Premium, or a support-ticket
+manual activation; free-plan Let's Encrypt certs also need manual renewal every
+90 days). Browsers block HTTPS→HTTP ("mixed content"), so a free Cloudflare
+Worker fronts the HTTP backend with automatic HTTPS. Worker proxy code lives in
+`docs/cloudflare-worker.js` (paste into Workers → eventsphere-api → Edit code →
+Deploy). The frontend's `VITE_API_URL` and any webhook callbacks must use the
+Worker URL, never the raw HTTP origin.
 
 ### How a deploy works
 Pushing backend changes to `main` triggers
 `.github/workflows/deploy-monsterasp.yml`:
 publish `.NET 10` (framework-dependent) → inject real `appsettings.Production.json`
 (from GitHub Secrets) → force `ASPNETCORE_ENVIRONMENT=Production` in `web.config`
-→ FTP-deploy while the site is offline via `app_offline.htm` → bring it online →
-smoke test `/api/events/public`.
+→ put the site offline with a plain `curl -T app_offline.htm` to
+`/wwwroot/app_offline.htm` (that exact path is what IIS watches) → FTP-deploy
+the publish folder → remove `app_offline.htm` via FTP `DELE` → smoke test
+`/api/events/public`.
 `dangerous-clean-slate` is **off**, so `wwwroot/wwwroot/uploads/**` (payment
 evidence) survives every deploy.
+
+> History: an earlier version used a YAML list under a `with:` input
+> (`exclude:`), which GitHub's workflow parser rejects ("A sequence was not
+> expected") and produced 0-job failed runs — keep such values as plain
+> strings. The offline toggle also previously targeted the wrong folder; the
+> served site root is `/wwwroot/` (SFTPGo), verified by
+> `CWD /wwwroot` + `DELE app_offline.htm`.
 
 ### GitHub Secrets required (repo → Settings → Secrets and variables → Actions)
 | Secret | Value (never commit/paste publicly) |
@@ -88,23 +108,26 @@ evidence) survives every deploy.
 | `FTP_LOGIN` | `site92718` |
 | `FTP_PASSWORD` | FTP password from panel |
 | `PROD_DB_CONNECTION` | Local access connection string: `Server=db69234.databaseasp.net;Database=db69234;User Id=db69234;Password=...;Encrypt=False;MultipleActiveResultSets=True` |
-| `PROD_CORS_ORIGIN` | Vercel frontend origin, e.g. `https://eventsphere.vercel.app` |
+| `PROD_CORS_ORIGIN` | Real frontend origin: `https://it-15-project.vercel.app` |
 | `PROD_JWT_KEY` | Long random 32-byte secret (e.g. `openssl rand -base64 48`) |
 | `PROD_PAYMONGO_SECRET` | (optional) PayMongo secret key |
 
 ### Vercel (frontend)
-1. Import the repo `landing-page/` folder (root may be the repo root; select the
-   `landing-page` directory).
-2. Framework preset `Vite`, build `npm run build`, output `.next` → **Vite uses
-   `dist`** (`npm run build`), so set output directory `dist`.
-3. Add environment variable **`VITE_API_URL=https://eventsphere-backend.runasp.net`**.
-4. Commit `landing-page/vercel.json` (SPA fallback to `index.html`). The API is
-   reached cross-origin directly — no Vercel `/api` rewrites (avoids body-size cap
-   on the 4.5 MB upload rewrite limit).
+1. Import the repo; set **Root Directory** to `landing-page`.
+2. Framework preset `Vite`, build `npm run build`, output `dist`.
+3. Add environment variable **`VITE_API_URL=https://eventsphere-api.j-padilla-535123.workers.dev`**
+   (the HTTPS Worker URL — never the raw HTTP origin, or browser mixed-content will block it).
+4. `landing-page/vercel.json` handles the SPA fallback to `index.html`. The API is
+   reached cross-origin through the Worker — no Vercel `/api` rewrites.
+5. Production site: `https://it-15-project.vercel.app`.
 
 ### First deploy checklist
-1. Enable **HTTPS** (Let's Encrypt) on `eventsphere-backend.runasp.net` + HTTPS redirect.
-2. Add the GitHub Secrets above (use the connection string from the **Local access** box).
-3. `git push origin main` for backend; check the **Deploy API to MonsterASP** run.
-4. Visit `https://eventsphere-backend.runasp.net/api/events/public` → expect HTTP 200 `[]` or event list.
-5. Deploy the Vercel project, then log in with the demo accounts below.
+1. Backend: add the GitHub Secrets above (use the connection string from the **Local access** box).
+2. `git push origin main` → check the **Deploy API to MonsterASP** run is green.
+3. Cloudflare: Worker `eventsphere-api` with the code in `docs/cloudflare-worker.js`.
+4. Visit `https://eventsphere-api.j-padilla-535123.workers.dev/api/events/public` → expect HTTP 200.
+5. Vercel: deploy `landing-page` with `VITE_API_URL` = the Worker URL.
+6. Log in with the demo accounts below (admin sees Leads/Events etc.).
+7. Out of the box, the "Get A Ticket" feed shows the seeded **Public** event
+   ("Heritage Bank Customer Appreciation"); create more events with
+   AccessType = **Public** to let visitors register for them.
