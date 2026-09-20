@@ -183,6 +183,97 @@ public class StaffController : ControllerBase
         return Ok(new { month = target.Month, year = target.Year, days });
     }
 
+    /* Staff files a leave / absence with a reason. Creates Attendance rows
+       (Status = Leave) for each requested day and charges the leave balance. */
+    [HttpPost("leave")]
+    public async Task<IActionResult> FileLeave([FromBody] FileLeaveRequest request)
+    {
+        var (user, employee) = await IdentityAsync();
+        if (user == null)
+            return Unauthorized(new { message = "Session expired. Please sign in again." });
+        if (employee == null)
+            return NotFound(new
+            {
+                message = "No employee profile is linked to this account. Ask an administrator to link your staff record."
+            });
+
+        var start = request.Start.Date;
+        var end = (request.End ?? request.Start).Date;
+        if (end < start)
+            return BadRequest(new { message = "The end date cannot be before the start date." });
+        if (start < DateTime.Today)
+            return BadRequest(new { message = "Leave can only be filed from today onwards." });
+        if (string.IsNullOrWhiteSpace(request.Reason))
+            return BadRequest(new { message = "Please provide a reason for the leave." });
+        if ((end - start).Days + 1 > 30)
+            return BadRequest(new { message = "Leave cannot exceed 30 days in a single filing." });
+
+        var dayAfter = end.AddDays(1);
+        var conflicts = await _db.Attendance
+            .Where(a => a.EmployeeId == employee.Id && a.WorkDate >= start && a.WorkDate < dayAfter)
+            .Select(a => a.WorkDate)
+            .ToListAsync();
+        if (conflicts.Count > 0)
+            return Conflict(new
+            {
+                message = "You already have attendance records on those dates. Pick dates with no existing record.",
+                dates = conflicts.Select(d => d.ToString("yyyy-MM-dd")),
+            });
+
+        var balance = await _db.LeaveBalances
+            .FirstOrDefaultAsync(lb => lb.EmployeeId == employee.Id && lb.Year == start.Year);
+        if (balance == null)
+        {
+            balance = new LeaveBalance { EmployeeId = employee.Id, Year = start.Year, TotalDays = 15, UsedDays = 0 };
+            _db.LeaveBalances.Add(balance);
+        }
+
+        var days = (end - start).Days + 1;
+        if (balance.AvailableDays < days)
+            return BadRequest(new
+            {
+                message = $"Only {balance.AvailableDays} leave day(s) remain for {start.Year}.",
+                leaveBalance = new { balance.TotalDays, balance.UsedDays, balance.AvailableDays },
+            });
+
+        var reason = (request.Reason ?? string.Empty).Trim();
+        if (reason.Length > 300)
+            reason = reason.Substring(0, 300);
+
+        for (var d = start; d <= end; d = d.AddDays(1))
+        {
+            _db.Attendance.Add(new Attendance
+            {
+                EmployeeId = employee.Id,
+                WorkDate = d,
+                Status = AttendanceStatus.Leave,
+                Notes = reason,
+            });
+        }
+
+        balance.UsedDays += days;
+        await _db.SaveChangesAsync();
+
+        var filedDates = new List<string>();
+        for (var d = start; d <= end; d = d.AddDays(1))
+            filedDates.Add(d.ToString("yyyy-MM-dd"));
+
+        return Ok(new
+        {
+            filed = days,
+            dates = filedDates,
+            reason,
+            leaveBalance = new { balance.TotalDays, balance.UsedDays, balance.AvailableDays },
+        });
+    }
+
+    public class FileLeaveRequest
+    {
+        public DateTime Start { get; set; }
+        public DateTime? End { get; set; }
+        public string? Reason { get; set; }
+    }
+
     private async Task<(User? user, Employee? employee)> IdentityAsync()
     {
         var sub = User.FindFirstValue(ClaimTypes.NameIdentifier)

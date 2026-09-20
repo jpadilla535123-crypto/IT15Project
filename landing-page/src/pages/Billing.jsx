@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react'
 import {
-  Receipt, Wallet, TrendingDown, Clock, FileText, X, Loader2, Ban, Printer,
-  ImagePlus, Smartphone, CreditCard, CheckCircle2, Info,
+  Receipt, Wallet, TrendingDown, Clock, FileText, X, Ban, Printer,
+  Smartphone, CreditCard,
 } from 'lucide-react'
 import AppLayout from './AppLayout'
 import { StatValue, Kpi, PageHeader, SearchBar, Chip } from '../components/dashboard/Shared'
 import { formatCurrency, formatFullDate } from '../components/dashboard/format'
 import { useData } from '../api/data'
-import { api, API_URL } from '../api/client'
+import { API_URL } from '../api/client'
+import InvoicePaymentForm from '../components/dashboard/InvoicePaymentForm'
 import './landingFx.css'
 
 const STATUS_PILL = {
@@ -17,7 +18,6 @@ const STATUS_PILL = {
   Void: 'bg-gray-100 dark:bg-white/5 text-gray-400',
 }
 const FILTERS = ['All', 'Unpaid', 'Partial', 'Paid', 'Void']
-const PAY_METHODS = ['GCash', 'Card', 'Cash', 'Bank Transfer']
 
 export default function Billing({ user }) {
   const { data, reload } = useData()
@@ -25,8 +25,6 @@ export default function Billing({ user }) {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('All')
   const [openId, setOpenId] = useState(null)
-  const [savingPay, setSavingPay] = useState(false)
-  const [payForm, setPayForm] = useState({ amount: '', method: 'GCash', reference: '', file: null, preview: null })
 
   const venueById = useMemo(() => new Map(venues.map(v => [v.Id, v])), [venues])
   const clientById = useMemo(() => new Map(clients.map(c => [c.Id, c])), [clients])
@@ -89,35 +87,6 @@ export default function Billing({ user }) {
 
   const open = invoices.find(i => i.event.Id === openId)
   const invoicePayments = open?.realId ? (paymentsByInvoice[open.realId] || []) : []
-
-  function resetPayForm() {
-    if (payForm.preview) URL.revokeObjectURL(payForm.preview)
-    setPayForm({ amount: '', method: 'GCash', reference: '', file: null, preview: null })
-  }
-
-  async function makePayment() {
-    const amount = Number(payForm.amount)
-    if (!(amount > 0)) { alert('Enter a valid amount first.'); return }
-    if (!payForm.file) { alert('Attach the proof screenshot first — payments are recorded only with evidence.'); return }
-    setSavingPay(true)
-    try {
-      const fd = new FormData()
-      fd.append('eventId', String(open.event.Id))
-      if (open.client?.Id) fd.append('clientId', String(open.client.Id))
-      fd.append('amount', String(amount))
-      fd.append('paymentDate', new Date().toISOString().slice(0, 10))
-      fd.append('method', payForm.method)
-      fd.append('reference', payForm.reference || '')
-      fd.append('evidence', payForm.file)
-      await api.post('/api/payments/with-evidence', fd)
-      resetPayForm()
-      await reload()
-    } catch (err) {
-      alert(err.message || 'Could not record the payment.')
-    } finally {
-      setSavingPay(false)
-    }
-  }
 
   return (
     <AppLayout user={user} badgeCount={data.leads.length}>
@@ -256,58 +225,10 @@ export default function Billing({ user }) {
                     <p className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
                       <Wallet size={15} className="text-[#FF2B66]" /> Make a payment
                     </p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">Amount (₱)</label>
-                        <input type="number" min="0" value={payForm.amount}
-                          onChange={e => setPayForm(f => ({ ...f, amount: e.target.value }))}
-                          className="w-full rounded-lg border border-gray-200 dark:border-[#2A2A36] bg-gray-50 dark:bg-[#0B0B0E] px-3 py-2 text-sm outline-none focus:border-[#FF2B66]/60 text-gray-900 dark:text-white" />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">Method</label>
-                        <select value={payForm.method}
-                          onChange={e => setPayForm(f => ({ ...f, method: e.target.value }))}
-                          className="w-full appearance-none rounded-lg border border-gray-200 dark:border-[#2A2A36] bg-gray-50 dark:bg-[#0B0B0E] px-3 py-2 text-sm outline-none focus:border-[#FF2B66]/60 text-gray-900 dark:text-white">
-                          {PAY_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-                        </select>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">Reference / Note (optional)</label>
-                      <input type="text" value={payForm.reference}
-                        onChange={e => setPayForm(f => ({ ...f, reference: e.target.value }))}
-                        className="w-full rounded-lg border border-gray-200 dark:border-[#2A2A36] bg-gray-50 dark:bg-[#0B0B0E] px-3 py-2 text-sm outline-none focus:border-[#FF2B66]/60 text-gray-900 dark:text-white" />
-                    </div>
-                    <label className="flex items-center justify-center gap-2 cursor-pointer rounded-xl border border-dashed border-gray-300 dark:border-[#2A2A36] px-4 py-3 text-xs font-semibold text-gray-500 dark:text-[#9CA3AF] hover:border-[#FF2B66]/60 hover:text-[#FF2B66] transition-colors">
-                      {payForm.preview ? <CheckCircle2 size={15} className="text-emerald-500" /> : <ImagePlus size={15} />}
-                      {payForm.preview ? 'Proof screenshot attached' : 'Attach proof screenshot (required)'}
-                      <input type="file" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp" className="hidden"
-                        onChange={e => {
-                          const file = e.target.files?.[0]
-                          if (!file) return
-                          if (!file.type.startsWith('image/')) { alert('Proof must be an image.'); return }
-                          setPayForm(f => ({ ...f, file, preview: URL.createObjectURL(file) }))
-                        }} />
-                    </label>
-                    {payForm.preview && (
-                      <div className="flex items-center gap-3 rounded-lg border border-gray-200 dark:border-[#2A2A36] p-2">
-                        <img src={payForm.preview} alt="Proof" className="h-16 w-16 rounded object-cover" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-gray-900 dark:text-white">{payForm.method} · {formatCurrency(Number(payForm.amount) || 0)}</p>
-                          <p className="text-[10px] text-gray-400 truncate">{payForm.reference || 'No reference'}</p>
-                        </div>
-                      </div>
-                    )}
-                    <button disabled={savingPay}
-                      onClick={makePayment}
-                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#FF2B66] hover:bg-[#E0245A] text-white text-xs font-bold py-2.5 px-3 transition-all active:scale-95 disabled:opacity-60">
-                      {savingPay ? <Loader2 size={13} className="animate-spin" /> : <Wallet size={13} />}
-                      Record payment
-                    </button>
-                    <p className="flex items-start gap-1.5 text-[10px] leading-relaxed text-gray-400 dark:text-[#6B7280]">
-                      <Info size={12} className="shrink-0 mt-0.5" />
-                      Each recorded payment is saved to the Payments table, linked to this invoice, and updates the invoice's Paid Amount and status.
-                    </p>
+                    <InvoicePaymentForm
+                      eventId={open.event.Id}
+                      clientId={open.client?.Id}
+                      onDone={reload} />
                   </div>
 
                   <button className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 dark:border-[#2A2A36] px-3 py-2.5 text-xs font-bold text-gray-600 dark:text-gray-300 hover:border-[#FF2B66]/50 hover:text-[#FF2B66] transition-colors">

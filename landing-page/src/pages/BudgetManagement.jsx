@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
-  Wallet, TrendingUp, TrendingDown, Activity, ArrowUpCircle, ArrowDownCircle,
-  Plus, X, Loader2, ImagePlus, Trash2, Building2, CalendarDays, PackageCheck, Calculator, PieChart, History,
+  Wallet, TrendingUp, Activity, ArrowUpCircle, ArrowDownCircle,
+  Plus, X, Loader2, ImagePlus, Trash2, Building2, CalendarDays, PackageCheck, Calculator, PieChart, History, ChevronDown, Banknote,
 } from 'lucide-react'
 import AppLayout from './AppLayout'
 import { StatValue, Kpi, PageHeader } from '../components/dashboard/Shared'
@@ -42,23 +42,25 @@ export default function BudgetManagement({ user }) {
   const { data, reload } = useData()
   const { events, venues, suppliers, purchaseOrders, payments, supplierPayments } = data
   const [alloc, setAlloc] = useState(DEFAULT_ALLOC)
+  const [viewMonth, setViewMonth] = useState(monthKey(new Date()))
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [delId, setDelId] = useState(null)
+  const [expandedId, setExpandedId] = useState(null)
   const [form, setForm] = useState({ supplierId: '', eventId: '', description: '', amount: '', method: 'Bank Transfer', reference: '', date: '' })
   const [file, setFile] = useState({ value: null, preview: null })
 
   const supById = useMemo(() => new Map(suppliers.map(s => [s.Id, s])), [suppliers])
   const venueById = useMemo(() => new Map(venues.map(v => [v.Id, v])), [venues])
 
-  const thisMonth = monthKey(new Date())
   const incomeTotal = payments.reduce((s, p) => s + p.Amount, 0)
-  const expenseTotal = supplierPayments.reduce((s, x) => s + x.Amount, 0)
-  const monthlyIncome = payments.filter(p => p.PaymentDate && monthKey(p.PaymentDate) === thisMonth).reduce((s, p) => s + p.Amount, 0)
-  const monthlyExpenses = supplierPayments.filter(x => x.PaymentDate && monthKey(x.PaymentDate) === thisMonth).reduce((s, x) => s + x.Amount, 0)
-  const cashFlow = monthlyIncome - monthlyExpenses
+  const gained = payments.filter(p => p.PaymentDate && monthKey(p.PaymentDate) === viewMonth).reduce((s, p) => s + p.Amount, 0)
+  const spentThisMonth = supplierPayments.filter(x => x.PaymentDate && monthKey(x.PaymentDate) === viewMonth).reduce((s, x) => s + x.Amount, 0)
+  const salaryThisMonth = (data.employees || []).filter(e => e.Status === 'Active').reduce((s, e) => s + (Number(e.Salary) || 0), 0)
+  const used = spentThisMonth + salaryThisMonth
+  const cashFlow = gained - used
 
-  /* combined recent transactions (client income + supplier expenses) */
+  /* combined recent transactions for the selected month (client income + supplier expenses) */
   const transactions = useMemo(() => {
     const inc = payments.map(p => ({
       key: `in-${p.Id}`, kind: 'income', label: 'Client payment', sub: p.Reference || 'Reference not recorded',
@@ -70,20 +72,21 @@ export default function BudgetManagement({ user }) {
       evidence: x.EvidencePath, spId: x.Id,
     }))
     return [...inc, ...exp]
-      .filter(t => t.date)
+      .filter(t => t.date && monthKey(t.date) === viewMonth)
       .sort((a, b) => b.date - a.date)
       .slice(0, 8)
-  }, [payments, supplierPayments])
+  }, [payments, supplierPayments, viewMonth])
 
-  /* spending by supplier category, from evidence-backed payments */
+  /* spending by supplier category for the selected month, from evidence-backed payments */
   const byCategory = useMemo(() => {
     const m = new Map()
     supplierPayments.forEach(x => {
+      if (monthKey(x.PaymentDate) !== viewMonth) return
       const cat = supById.get(x.SupplierId)?.Category || 'Others'
       m.set(cat, (m.get(cat) || 0) + x.Amount)
     })
     return [...m.entries()].map(([name, amount]) => ({ name, amount })).sort((a, b) => b.amount - a.amount)
-  }, [supplierPayments, supById])
+  }, [supplierPayments, supById, viewMonth])
   const maxCat = Math.max(1, ...byCategory.map(c => c.amount))
 
   /* actual committed spend (venue fees + POs), for the allocation overview */
@@ -113,6 +116,29 @@ export default function BudgetManagement({ user }) {
     })
     .sort((a, b) => (b.venueFee + b.poTotal) - (a.venueFee + a.poTotal)), [events, purchaseOrders, venueById])
   const maxCost = Math.max(1, ...eventCosts.map(c => c.venueFee + c.poTotal))
+
+  /* events scheduled in the selected month: planned budget, logistics bought,
+     payments made, payments received, and resulting profit */
+  const monthEvents = useMemo(() => {
+    const invByEvent = new Map()
+    ;(data.invoices || []).forEach(i => invByEvent.set(i.eventId, i))
+    const spByEvent = {}
+    supplierPayments.forEach(x => { if (x.EventId) (spByEvent[x.EventId] = spByEvent[x.EventId] || []).push(x) })
+    return events
+      .filter(e => e.Status !== 'Cancelled' && e.StartDate && monthKey(e.StartDate) === viewMonth)
+      .map(e => {
+        const inv = invByEvent.get(e.Id)
+        const billed = Number(inv?.amount) || 0
+        const received = inv ? Math.min(billed, Number(inv.paidAmount) || 0) : (e.Status === 'Completed' ? (venueById.get(e.VenueId)?.PricePerDay || 0) : 0)
+        const pos = purchaseOrders.filter(po => po.EventId === e.Id)
+        const spentLog = pos.reduce((s, p) => s + p.Amount, 0)
+        const paidOut = (spByEvent[e.Id] || []).reduce((s, x) => s + x.Amount, 0)
+        const planned = Number(e.TotalBudget) || (spentLog + (venueById.get(e.VenueId)?.PricePerDay || 0))
+        return { e, billed, received, spentLog, paidOut, planned, profit: received - paidOut, pos, sps: spByEvent[e.Id] || [] }
+      })
+      .sort((a, b) => (a.e.StartDate?.getTime?.() ?? 0) - (b.e.StartDate?.getTime?.() ?? 0))
+  }, [events, viewMonth, data.invoices, supplierPayments, purchaseOrders, venueById])
+  const monthBudgetUsed = monthEvents.reduce((s, x) => s + x.spentLog, 0)
 
   function setCat(key, val) {
     setAlloc(a => ({ ...a, [key]: Math.round(val / 5000) * 5000 }))
@@ -165,26 +191,114 @@ export default function BudgetManagement({ user }) {
 
   return (
     <AppLayout user={user} badgeCount={data.leads.length}>
-      <PageHeader section="Finance" icon={Wallet} title="Budget Management">
-        ₱<span className="font-bold text-gray-900 dark:text-white"><StatValue value={incomeTotal} /></span> earnings ·{' '}
-        <span className="font-bold text-[#FF2B66]">₱<StatValue value={expenseTotal} /></span> expenses ·{' '}
+      <PageHeader section="Finance" icon={Wallet} title="Budget Management"
+        actions={
+          <input type="month" value={viewMonth} onChange={e => { setViewMonth(e.target.value); setExpandedId(null) }}
+            className="rounded-xl border border-gray-200 dark:border-[#2A2A36] bg-gray-50 dark:bg-[#0B0B0E] px-3 py-2 text-xs font-semibold text-gray-900 dark:text-white outline-none" />
+        }>
+        ₱<span className="font-bold text-gray-900 dark:text-white"><StatValue value={gained} /></span> gained ·{' '}
+        <span className="font-bold text-[#FF2B66]">₱<StatValue value={used} /></span> used this month ·{' '}
         <span className={`font-bold ${cashFlow >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>₱<StatValue value={Math.abs(cashFlow)} /></span>{' '}
         {cashFlow >= 0 ? 'net cash this month' : 'cash deficit this month'}
       </PageHeader>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Kpi icon={TrendingUp} label="Total Earnings"><StatValue value={incomeTotal} /></Kpi>
-        <Kpi icon={ArrowUpCircle} label="Monthly Income" tone="text-emerald-500" bg="bg-emerald-500/10" delay={80}>
-          <StatValue value={monthlyIncome} />
+        <Kpi icon={TrendingUp} label="Total Earnings (all time)"><StatValue value={incomeTotal} /></Kpi>
+        <Kpi icon={ArrowUpCircle} label="Gained this month" tone="text-emerald-500" bg="bg-emerald-500/10" delay={80}>
+          ₱<StatValue value={gained} />
         </Kpi>
-        <Kpi icon={ArrowDownCircle} label="Monthly Expenses" tone="text-[#FF2B66]" bg="bg-[#FF2B66]/10" delay={160}>
-          <StatValue value={monthlyExpenses} />
+        <Kpi icon={ArrowDownCircle} label="Used this month" tone="text-[#FF2B66]" bg="bg-[#FF2B66]/10" delay={160}>
+          ₱<StatValue value={used} />
         </Kpi>
-        <Kpi icon={Activity} label="Cash Flow"
+        <Kpi icon={Activity} label="Net this month"
           tone={cashFlow >= 0 ? 'text-emerald-500' : 'text-red-500'} bg={cashFlow >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10'} delay={240}>
           ₱<StatValue value={Math.abs(cashFlow)} /> {cashFlow >= 0 ? 'in' : 'out'}
         </Kpi>
       </div>
+
+      {/* per-month events, logistics & profit */}
+      <section className="rounded-2xl border border-gray-200 dark:border-[#2A2A36] bg-white dark:bg-[#121217] p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+          <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <span className="h-8 w-8 rounded-lg bg-[#FF2B66]/10 text-[#FF2B66] flex items-center justify-center"><CalendarDays size={15} /></span>
+            Events · Logistics & Profit
+          </h3>
+          <p className="text-xs text-gray-400 dark:text-[#6B7280]">
+            Logistics bought <span className="font-bold text-[#FF2B66]">{formatCurrency(monthBudgetUsed)}</span> · staff salaries <span className="font-bold text-[#FF2B66]">{formatCurrency(salaryThisMonth)}</span> this month
+          </p>
+        </div>
+        <p className="text-xs text-gray-500 dark:text-[#9CA3AF] mb-4">
+          For each event done in the selected month: the planned budget, what has been paid/bought off (logistics), what has been received, and the resulting profit. Click an event to inspect its purchase orders and supplier payments.
+        </p>
+
+        {monthEvents.length === 0 ? (
+          <div className="text-center py-12 border border-dashed border-gray-200 dark:border-[#2A2A36] rounded-xl">
+            <CalendarDays size={20} className="mx-auto mb-2 text-gray-400" />
+            <p className="text-sm text-gray-400 dark:text-[#6B7280]">No active events scheduled in this month.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {monthEvents.map(x => {
+              const isOpen = expandedId === x.e.Id
+              const pct = x.planned > 0 ? Math.min(100, Math.round((x.spentLog / x.planned) * 100)) : 0
+              return (
+                <div key={x.e.Id} className={`rounded-2xl border transition-colors ${isOpen ? 'border-[#FF2B66]/40' : 'border-gray-200 dark:border-[#2A2A36]'}`}>
+                  <button onClick={() => setExpandedId(isOpen ? null : x.e.Id)}
+                    className="w-full text-left px-4 py-3.5 flex items-center gap-3 flex-wrap">
+                    <div className="flex-1 min-w-[160px]">
+                      <p className="font-bold text-sm text-gray-900 dark:text-white truncate">{x.e.Name}</p>
+                      <p className="text-[11px] text-gray-400 dark:text-[#6B7280]">
+                        {x.e.StartDate ? new Date(x.e.StartDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '—'} · {x.e.Status}
+                      </p>
+                    </div>
+                    <div className="hidden sm:flex items-center gap-2">
+                      <PlanMini label="Planned" value={formatCurrency(x.planned)} />
+                      <PlanMini label="Bought" value={formatCurrency(x.spentLog)} cls="text-[#FF2B66]" />
+                      <PlanMini label="Received" value={formatCurrency(x.received)} cls="text-emerald-600 dark:text-emerald-400" />
+                      <PlanMini label="Profit" value={formatCurrency(x.profit)} cls={x.profit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'} />
+                    </div>
+                    <span className={`text-[11px] font-bold tabular-nums rounded-full px-2.5 py-1 ${x.profit >= 0 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 text-red-500'}`}>
+                      {x.profit >= 0 ? '+' : ''}{formatCurrency(x.profit)}
+                    </span>
+                    <ChevronDown size={15} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  <div className="px-4 pb-2">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 h-2 rounded-full bg-gray-100 dark:bg-white/10 overflow-hidden">
+                        <div className={`h-full rounded-full ${pct > 90 ? 'bg-red-500' : 'bg-[#FF2B66]'}`} style={{ width: `${Math.max(pct, 2)}%` }} />
+                      </div>
+                      <span className="text-[10px] font-bold text-gray-400 dark:text-[#6B7280]">{pct}% of planned budget used</span>
+                    </div>
+                  </div>
+
+                  {isOpen && (
+                    <div className="px-4 pb-4 pt-2 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      <LogisticsList title="Purchase orders (logistics bought)" items={x.pos} icon={PackageCheck}
+                        render={po => (
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-gray-900 dark:text-white truncate">{po.Description || po.ServiceType || 'Supplier order'}</p>
+                            <p className="text-[10px] text-gray-400 truncate">{po.SupplierName || supById.get(po.SupplierId)?.Name || `Supplier #${po.SupplierId}`}{po.Status ? ` · ${po.Status}` : ''}</p>
+                          </div>
+                        )}
+                        amount={po => po.Amount} />
+                      <LogisticsList title="Supplier payments (paid out)" items={x.sps} icon={Banknote}
+                        render={s => (
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-gray-900 dark:text-white truncate">{s.Description || 'Supplier payment'}</p>
+                            <p className="text-[10px] text-gray-400 truncate">{s.SupplierName || `Supplier #${s.SupplierId}`} · {s.PaymentMethod}{s.ReferenceNumber ? ` · ${s.ReferenceNumber}` : ''}</p>
+                          </div>
+                        )}
+                        amount={s => s.Amount}
+                        evidence={s => s.EvidencePath} />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* recent transactions */}
@@ -463,5 +577,44 @@ export default function BudgetManagement({ user }) {
         </div>
       )}
     </AppLayout>
+  )
+}
+
+function PlanMini({ label, value, cls = 'text-gray-700 dark:text-gray-200' }) {
+  return (
+    <div className="rounded-lg border border-gray-200 dark:border-[#2A2A36] px-2.5 py-1.5">
+      <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">{label}</p>
+      <p className={`text-xs font-bold tabular-nums ${cls}`}>{value}</p>
+    </div>
+  )
+}
+
+function LogisticsList({ title, items, icon: Icon, render, amount, evidence }) {
+  return (
+    <div>
+      <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-[#6B7280] mb-2">
+        <Icon size={12} className="text-[#FF2B66]" /> {title}
+      </p>
+      {items.length === 0 ? (
+        <p className="text-xs text-gray-400 dark:text-[#6B7280] p-3 bg-gray-50 dark:bg-white/[0.02] rounded-lg">Nothing recorded yet.</p>
+      ) : (
+        <ul className="space-y-1.5">
+          {items.map((it, i) => {
+            const ev = evidence ? evidence(it) : null
+            return (
+              <li key={i} className="flex items-center gap-3 rounded-lg border border-gray-200 dark:border-[#2A2A36] p-2.5">
+                {ev ? (
+                  <button onClick={() => window.open(`${API_URL}${ev}`, '_blank')} className="block shrink-0 overflow-hidden rounded-lg">
+                    <img src={`${API_URL}${ev}`} alt="proof" className="h-9 w-9 object-cover hover:scale-105 transition-transform" />
+                  </button>
+                ) : <span className="h-9 w-9 shrink-0 rounded-lg bg-gray-100 dark:bg-[#2A2A36] flex items-center justify-center"><Icon size={13} className="text-gray-400" /></span>}
+                <div className="flex-1 min-w-0">{render(it)}</div>
+                <span className="shrink-0 text-xs font-bold tabular-nums text-[#FF2B66]">{formatCurrency(amount(it))}</span>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
   )
 }

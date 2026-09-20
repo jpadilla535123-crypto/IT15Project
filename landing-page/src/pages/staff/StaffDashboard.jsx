@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   Loader2, CalendarDays, BriefcaseBusiness, CalendarX2, Umbrella,
-  Clock, MapPin, ReceiptText, TrendingUp,
+  MapPin, ReceiptText, TrendingUp, Send, FilePlus2,
 } from 'lucide-react'
 import AppLayout from '../AppLayout'
 import { api } from '../../api/client'
@@ -30,6 +30,13 @@ function dateTag() {
 
 function money(amount) {
   return `₱${Number(amount || 0).toLocaleString('en-US')}`
+}
+
+function todayStr() {
+  const d = new Date()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${mm}-${dd}`
 }
 
 function monthLabel(p) {
@@ -95,6 +102,30 @@ export default function StaffDashboard({ user }) {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  const [leaveForm, setLeaveForm] = useState({ start: todayStr(), end: '', reason: '' })
+  const [savingLeave, setSavingLeave] = useState(false)
+  const [leaveMsg, setLeaveMsg] = useState(null)
+
+  async function submitLeave(e) {
+    e.preventDefault()
+    setSavingLeave(true)
+    setLeaveMsg(null)
+    try {
+      const res = await api.post('/api/staff/leave', {
+        start: leaveForm.start,
+        end: leaveForm.end || leaveForm.start,
+        reason: leaveForm.reason,
+      })
+      setLeaveMsg({ ok: true, text: `Leave filed for ${res.filed} day(s). ${res.leaveBalance?.availableDays ?? 0} day(s) left for this year.` })
+      setLeaveForm({ start: todayStr(), end: '', reason: '' })
+      await load()
+    } catch (err) {
+      setLeaveMsg({ ok: false, text: err.message })
+    } finally {
+      setSavingLeave(false)
+    }
+  }
 
   if (state.loading) {
     return (
@@ -232,29 +263,62 @@ export default function StaffDashboard({ user }) {
 
         <div className="flex flex-col gap-4 min-w-0">
           <Card>
-            <CardTitle icon={Clock} title="Attendance" sub="Last 45 logged days" />
-            {attendance.length === 0 ? (
-              <Empty message="No attendance logged yet." />
-            ) : (
-              <>
-                <div className="grid grid-cols-10 gap-1.5">
-                  {attendance.map(a => {
+            <CardTitle icon={FilePlus2} title="File a Leave" sub={`${leave.availableDays} day(s) available this year`} />
+            <form onSubmit={submitLeave} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">Start date</span>
+                  <input type="date" required min={todayStr()} value={leaveForm.start}
+                    onChange={e => setLeaveForm(f => ({ ...f, start: e.target.value }))}
+                    className="w-full rounded-xl border border-gray-200 dark:border-[#2A2A36] bg-gray-50 dark:bg-[#0B0B0E] px-3 py-2 text-sm text-gray-900 dark:text-white outline-none focus:border-[#FF2B66]/60" />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">End date</span>
+                  <input type="date" min={leaveForm.start || todayStr()} value={leaveForm.end}
+                    onChange={e => setLeaveForm(f => ({ ...f, end: e.target.value }))}
+                    className="w-full rounded-xl border border-gray-200 dark:border-[#2A2A36] bg-gray-50 dark:bg-[#0B0B0E] px-3 py-2 text-sm text-gray-900 dark:text-white outline-none focus:border-[#FF2B66]/60" />
+                </label>
+              </div>
+              <label className="flex flex-col gap-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">Reason</span>
+                <textarea rows={3} required maxLength={300} value={leaveForm.reason}
+                  onChange={e => setLeaveForm(f => ({ ...f, reason: e.target.value }))}
+                  placeholder="Why do you need this leave? (this shows on your attendance record)"
+                  className="w-full resize-none rounded-xl border border-gray-200 dark:border-[#2A2A36] bg-gray-50 dark:bg-[#0B0B0E] px-3 py-2.5 text-sm text-gray-900 dark:text-white outline-none focus:border-[#FF2B66]/60 placeholder:text-gray-400" />
+              </label>
+              {leaveMsg && (
+                <p className={`text-xs font-bold rounded-lg px-3 py-2 ${leaveMsg.ok ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300' : 'bg-red-500/10 text-red-500'}`}>
+                  {leaveMsg.text}
+                </p>
+              )}
+              <button type="submit" disabled={savingLeave}
+                className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#FF2B66] hover:bg-[#E0245A] text-white text-xs font-bold py-2.5 px-3 transition-all active:scale-95 disabled:opacity-60">
+                {savingLeave ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                File leave
+              </button>
+            </form>
+            {attendance.length > 0 && (
+              <div className="mt-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-[#6B7280] mb-2">Recent record</p>
+                <div className="max-h-52 overflow-y-auto no-scrollbar">
+                <ul className="space-y-1.5">
+                  {attendance.slice(0, 18).map(a => {
                     const meta = ATTENDANCE_META[a.status] || ATTENDANCE_META.RestDay
                     const dd = toDate(a.workDate)
                     return (
-                      <div key={a.workDate} title={`${dd.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} — ${meta.label}${a.notes ? ` (${a.notes})` : ''}`}
-                        className={`aspect-square rounded-md ${meta.cls} opacity-90`} />
+                      <li key={`${a.workDate}-${a.status}`} className="flex items-center gap-2.5 text-xs">
+                        <span className={`h-2 w-2 shrink-0 rounded-full ${meta.cls}`} />
+                        <span className="font-semibold tabular-nums text-gray-700 dark:text-gray-200">
+                          {dd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </span>
+                        <span className={`${meta.text} font-semibold`}>{meta.label}</span>
+                        <span className="flex-1 truncate text-right text-gray-400 dark:text-[#6B7280]">{a.notes || ''}</span>
+                      </li>
                     )
                   })}
+                </ul>
                 </div>
-                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                  {Object.values(ATTENDANCE_META).map(m => (
-                    <span key={m.label} className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-gray-400 dark:text-[#6B7280]">
-                      <span className={`h-2.5 w-2.5 rounded-sm ${m.cls}`} /> {m.label}
-                    </span>
-                  ))}
-                </div>
-              </>
+              </div>
             )}
           </Card>
 

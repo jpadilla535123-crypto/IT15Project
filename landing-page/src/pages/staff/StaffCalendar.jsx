@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   Loader2, CalendarDays, ChevronLeft, ChevronRight,
-  Clock, MapPin,
+  Clock, MapPin, X,
 } from 'lucide-react'
 import AppLayout from '../AppLayout'
 import { api } from '../../api/client'
@@ -116,122 +116,128 @@ export default function StaffCalendar({ user }) {
           <Loader2 size={32} className="animate-spin text-[#FF2B66]" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-          <div className="lg:col-span-2">
-            <section className="rounded-2xl border border-gray-200 dark:border-[#2A2A36] bg-white dark:bg-[#121217] p-4">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="h-8 w-8 rounded-lg bg-[#FF2B66]/10 flex items-center justify-center text-[#FF2B66]">
-                    <CalendarDays size={16} />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-gray-900 dark:text-white leading-tight">{viewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h3>
-                    <p className="text-[11px] text-gray-400 dark:text-[#6B7280]">Click a day for shift details</p>
-                  </div>
+        <div className="grid grid-cols-1 gap-4 items-start">
+          <section className="rounded-2xl border border-gray-200 dark:border-[#2A2A36] bg-white dark:bg-[#121217] p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-lg bg-[#FF2B66]/10 flex items-center justify-center text-[#FF2B66]">
+                  <CalendarDays size={16} />
                 </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 dark:text-white leading-tight">{viewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h3>
+                  <p className="text-[11px] text-gray-400 dark:text-[#6B7280]">Click a day to see shifts in a side panel</p>
+                </div>
+              </div>
 
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 justify-end">
-                  {Object.entries(ATT_META).map(([k, m]) => (
-                    <span key={k} className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-gray-400 dark:text-[#6B7280]">
-                      <span className={`h-2.5 w-2.5 rounded-sm ${m.cls}`} /> {m.label}
-                    </span>
-                  ))}
-                  <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-gray-400 dark:text-[#6B7280]">
-                    <span className="h-2.5 w-2.5 rounded-sm bg-slate-400/50" /> Holiday / off
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 justify-end">
+                {Object.entries(ATT_META).map(([k, m]) => (
+                  <span key={k} className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-gray-400 dark:text-[#6B7280]">
+                    <span className={`h-2.5 w-2.5 rounded-sm ${m.cls}`} /> {m.label}
                   </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-7 gap-[3px] mb-[3px]">
-                {WEEK_LABELS.map(l => (
-                  <span key={l} className="text-center text-[9px] font-bold text-gray-400 dark:text-[#6B7280]">{l}</span>
                 ))}
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-gray-400 dark:text-[#6B7280]">
+                  <span className="h-2.5 w-2.5 rounded-sm bg-slate-400/50" /> Holiday / off
+                </span>
               </div>
+            </div>
 
-              <div className="grid grid-cols-7 gap-[3px]">
-                {cells.map((d, i) => {
-                  if (!d) return <div key={`pad-${i}`} />
-                  const k = dateKey(d)
-                  const row = byDate.get(k)
-                  const att = row?.attendance
-                  const hasDuty = row?.assignments?.length > 0
-                  const attMeta = att ? ATT_META[att.status] : null
-                  const isToday = k === todayKey
-                  const isSelected = k === selectedKey
-                  return (
-                    <button key={k} onClick={() => setSelectedKey(k)}
-                      className={`relative aspect-square rounded-lg flex flex-col items-center justify-center text-[11px] font-bold transition-all hover:scale-[1.04] hover:z-10 ${
-                        attMeta
-                          ? `${attMeta.cls} text-white`
-                          : hasDuty
-                            ? 'bg-[#FF2B66]/15 text-[#FF2B66]'
-                            : 'bg-gray-100 dark:bg-white/[0.03] text-gray-600 dark:text-gray-300'
-                      } ${isToday ? 'ring-2 ring-[#FF2B66]' : ''} ${isSelected ? 'ring-2 ring-gray-400 dark:ring-white/40' : ''}`}>
-                      {d.getDate()}
-                      {hasDuty && (
-                        <span className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-0.5">
-                          {row.assignments.map(a => (
-                            <span key={a.id} className="h-1 w-1 rounded-full bg-current opacity-80" />
-                          ))}
-                        </span>
-                      )}
-                    </button>
-                  )
-                })}
+            <div className="grid grid-cols-7 gap-[3px] mb-[3px]">
+              {WEEK_LABELS.map(l => (
+                <span key={l} className="text-center text-[9px] font-bold text-gray-400 dark:text-[#6B7280]">{l}</span>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-7 gap-[3px]">
+              {cells.map((d, i) => {
+                if (!d) return <div key={`pad-${i}`} />
+                const k = dateKey(d)
+                const row = byDate.get(k)
+                const att = row?.attendance
+                const hasDuty = row?.assignments?.length > 0
+                const attMeta = att ? ATT_META[att.status] : null
+                const isToday = k === todayKey
+                const isSelected = k === selectedKey
+                return (
+                  <button key={k} onClick={() => setSelectedKey(k)}
+                    className={`relative aspect-square rounded-lg flex flex-col items-center justify-center text-[11px] font-bold transition-all hover:scale-[1.04] hover:z-10 ${
+                      attMeta
+                        ? `${attMeta.cls} text-white`
+                        : hasDuty
+                          ? 'bg-[#FF2B66]/15 text-[#FF2B66]'
+                          : 'bg-gray-100 dark:bg-white/[0.03] text-gray-600 dark:text-gray-300'
+                    } ${isToday ? 'ring-2 ring-[#FF2B66]' : ''} ${isSelected ? 'ring-2 ring-gray-400 dark:ring-white/40' : ''}`}>
+                    {d.getDate()}
+                    {hasDuty && (
+                      <span className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-0.5">
+                        {row.assignments.map(a => (
+                          <span key={a.id} className="h-1 w-1 rounded-full bg-current opacity-80" />
+                        ))}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        </div>
+      )}
+
+      {selected && (
+        <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setSelectedKey(null)} />
+          <div className="relative flex h-full w-full max-w-md flex-col bg-white dark:bg-[#121217] border-l border-gray-200 dark:border-[#2A2A36] shadow-2xl">
+            <div className="flex items-start justify-between gap-3 p-5 pb-3 border-b border-gray-100 dark:border-[#2A2A36]/60">
+              <div>
+                <h3 className="font-bold text-lg text-gray-900 dark:text-white">
+                  {new Date(selected.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                </h3>
+                <p className="text-xs text-gray-400 dark:text-[#6B7280] mt-0.5">Shifts and attendance for this day.</p>
               </div>
-            </section>
-          </div>
+              <button onClick={() => setSelectedKey(null)} aria-label="Close"
+                className="h-9 w-9 rounded-xl border border-gray-200 dark:border-[#2A2A36] text-gray-500 dark:text-[#9CA3AF] hover:text-[#FF2B66] hover:border-[#FF2B66]/50 flex items-center justify-center transition-colors">
+                <X size={16} />
+              </button>
+            </div>
 
-          <div className="min-w-0">
-            <section className="rounded-2xl border border-gray-200 dark:border-[#2A2A36] bg-white dark:bg-[#121217] p-4">
-              <h3 className="font-bold text-gray-900 dark:text-white mb-1">
-                {selected
-                  ? new Date(selected.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-                  : 'Day details'}
-              </h3>
-              <p className="text-[11px] text-gray-400 dark:text-[#6B7280] mb-4">
-                {selected ? 'Shifts and attendance for this day.' : 'Select a day to see its shifts and attendance.'}
-              </p>
-
-              {!selected && (
-                <div className="py-10 text-center text-sm text-gray-400 dark:text-[#6B7280]">No day selected</div>
-              )}
-
-              {selected && selected.attendance && (
-                <div className="mb-4 rounded-xl border border-gray-200 dark:border-[#2A2A36] bg-gray-50 dark:bg-[#0B0B0E] p-3.5">
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              {selected.attendance && (
+                <div className="rounded-xl border border-gray-200 dark:border-[#2A2A36] bg-gray-50 dark:bg-[#0B0B0E] p-4">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-[#6B7280] mb-1">Attendance</p>
-                  <p className="text-sm font-bold text-gray-900 dark:text-white">
+                  <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <span className={`h-2.5 w-2.5 rounded-full ${(ATT_META[selected.attendance.status]?.cls) || 'bg-gray-400'}`} />
                     {ATT_META[selected.attendance.status]?.label || selected.attendance.status}
                   </p>
-                  {selected.attendance.notes && <p className="text-xs text-gray-500 dark:text-[#9CA3AF] mt-0.5">{selected.attendance.notes}</p>}
+                  {selected.attendance.notes && <p className="text-xs text-gray-500 dark:text-[#9CA3AF] mt-1.5">{selected.attendance.notes}</p>}
                 </div>
               )}
 
-              {selected && selected.assignments.length === 0 && (
-                <p className="text-xs text-gray-500 dark:text-[#9CA3AF]">No shifts scheduled for this day.</p>
-              )}
-
-              {selected && selected.assignments.length > 0 && (
-                <ul className="space-y-2.5">
-                  {selected.assignments.map(a => {
-                    const meta = statusMeta(a.eventStatus)
-                    return (
-                      <li key={a.id} className={`rounded-xl border border-gray-200 dark:border-[#2A2A36] bg-gray-50 dark:bg-[#0B0B0E] p-3.5 border-l-4 ${meta.left}`}>
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="font-bold text-sm text-gray-900 dark:text-white truncate">{a.eventName}</p>
-                          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${meta.badge}`}>{a.eventStatus}</span>
-                        </div>
-                        <p className="text-xs text-gray-500 dark:text-[#9CA3AF] mt-1 flex items-center gap-1 flex-wrap">
-                          <span className="inline-flex items-center gap-1"><span className="font-semibold text-gray-700 dark:text-gray-200">{a.role || 'Staff'}</span></span>
-                          <span className="inline-flex items-center gap-1"><Clock size={11} />{a.hours}h</span>
-                          {a.venueName && <span className="inline-flex items-center gap-1"><MapPin size={11} />{a.venueName}</span>}
-                        </p>
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
-            </section>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-[#6B7280] mb-2">Shifts / Events</p>
+                {selected.assignments.length === 0 ? (
+                  <p className="text-xs text-gray-500 dark:text-[#9CA3AF] bg-gray-50 dark:bg-white/5 rounded-xl p-4">No shifts scheduled for this day.</p>
+                ) : (
+                  <ul className="space-y-2.5">
+                    {selected.assignments.map(a => {
+                      const meta = statusMeta(a.eventStatus)
+                      return (
+                        <li key={a.id} className={`rounded-xl border border-gray-200 dark:border-[#2A2A36] bg-gray-50 dark:bg-[#0B0B0E] p-4 border-l-4 ${meta.left}`}>
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="font-bold text-sm text-gray-900 dark:text-white truncate">{a.eventName}</p>
+                            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${meta.badge}`}>{a.eventStatus}</span>
+                          </div>
+                          <p className="text-xs text-gray-500 dark:text-[#9CA3AF] mt-1.5 flex items-center gap-1 flex-wrap">
+                            <span className="font-semibold text-gray-700 dark:text-gray-200">{a.role || 'Staff'}</span>
+                            <span className="inline-flex items-center gap-1"><Clock size={11} />{a.hours}h</span>
+                            {a.venueName && <span className="inline-flex items-center gap-1"><MapPin size={11} />{a.venueName}</span>}
+                          </p>
+                          {a.clientName && <p className="text-[11px] text-gray-400 dark:text-[#6B7280] mt-1">Client: {a.clientName}</p>}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
