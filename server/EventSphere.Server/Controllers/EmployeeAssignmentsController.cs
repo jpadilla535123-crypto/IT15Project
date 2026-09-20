@@ -1,24 +1,29 @@
 using EventSphere.Server.Data;
+using EventSphere.Server.Extensions;
 using EventSphere.Server.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace EventSphere.Server.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class EmployeeAssignmentsController : ControllerBase
 {
-    private readonly InMemoryDataContext _data;
+    private readonly AppDbContext _db;
 
-    public EmployeeAssignmentsController(InMemoryDataContext data)
+    public EmployeeAssignmentsController(AppDbContext db)
     {
-        _data = data;
+        _db = db;
     }
 
     [HttpGet]
-    public IActionResult GetAll(int? eventId = null, int? employeeId = null, string? status = null)
+    public IActionResult GetAll(int? eventId = null, int? employeeId = null, string? status = null,
+        string? sortBy = null, string? sortDir = null, int? page = null, int? pageSize = null)
     {
-        var query = _data.EmployeeAssignments.AsQueryable();
+        var query = _db.EmployeeAssignments.AsQueryable();
 
         if (eventId.HasValue)
             query = query.Where(a => a.EventId == eventId);
@@ -29,13 +34,24 @@ public class EmployeeAssignmentsController : ControllerBase
         if (!string.IsNullOrEmpty(status))
             query = query.Where(a => a.Status == status);
 
-        return Ok(query.OrderByDescending(a => a.AssignedDate).ToList());
+        query = (sortBy, sortDir) switch
+        {
+            ("assignedDate", "asc") => query.OrderBy(a => a.AssignedDate),
+            ("assignedDate", _) => query.OrderByDescending(a => a.AssignedDate),
+            ("role", "asc") => query.OrderBy(a => a.Role),
+            ("role", _) => query.OrderByDescending(a => a.Role),
+            ("status", "asc") => query.OrderBy(a => a.Status),
+            ("status", _) => query.OrderByDescending(a => a.Status),
+            _ => query.OrderByDescending(a => a.AssignedDate),
+        };
+
+        return Ok(query.Page(page, pageSize));
     }
 
     [HttpGet("{id}")]
-    public IActionResult GetById(int id)
+    public async Task<IActionResult> GetById(int id)
     {
-        var assignment = _data.EmployeeAssignments.FirstOrDefault(a => a.Id == id);
+        var assignment = await _db.EmployeeAssignments.FindAsync(id);
         if (assignment == null)
             return NotFound();
 
@@ -43,23 +59,23 @@ public class EmployeeAssignmentsController : ControllerBase
     }
 
     [HttpPost]
-    public IActionResult Create([FromBody] EmployeeAssignment assignment)
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<IActionResult> Create([FromBody] EmployeeAssignment assignment)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        assignment.Id = _data.NextId(_data.EmployeeAssignments);
-        assignment.CreatedAt = DateTime.UtcNow;
-        assignment.UpdatedAt = DateTime.UtcNow;
-        _data.EmployeeAssignments.Add(assignment);
+        _db.EmployeeAssignments.Add(assignment);
+        await _db.SaveChangesAsync();
 
         return CreatedAtAction(nameof(GetById), new { id = assignment.Id }, assignment);
     }
 
     [HttpPut("{id}")]
-    public IActionResult Update(int id, [FromBody] EmployeeAssignment assignment)
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<IActionResult> Update(int id, [FromBody] EmployeeAssignment assignment)
     {
-        var existing = _data.EmployeeAssignments.FirstOrDefault(a => a.Id == id);
+        var existing = await _db.EmployeeAssignments.FindAsync(id);
         if (existing == null)
             return NotFound();
 
@@ -71,17 +87,20 @@ public class EmployeeAssignmentsController : ControllerBase
         existing.Status = assignment.Status;
         existing.UpdatedAt = DateTime.UtcNow;
 
+        await _db.SaveChangesAsync();
         return NoContent();
     }
 
     [HttpDelete("{id}")]
-    public IActionResult Delete(int id)
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<IActionResult> Delete(int id)
     {
-        var assignment = _data.EmployeeAssignments.FirstOrDefault(a => a.Id == id);
+        var assignment = await _db.EmployeeAssignments.FindAsync(id);
         if (assignment == null)
             return NotFound();
 
-        _data.EmployeeAssignments.Remove(assignment);
+        _db.EmployeeAssignments.Remove(assignment);
+        await _db.SaveChangesAsync();
         return NoContent();
     }
 }

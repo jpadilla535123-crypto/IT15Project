@@ -1,34 +1,23 @@
 import { useState } from 'react'
 import {
   X, Mail, Phone, Home, CalendarDays, CalendarRange, CircleDot, Ban, Save, Check, ChevronDown, ArrowRight, Search, ArrowLeft,
-  QrCode, CreditCard, Smartphone, Wallet,
+  CreditCard, Smartphone, Plus, ImagePlus, Trash2, Loader2, ExternalLink, CheckCircle2,
 } from 'lucide-react'
 import { formatFullDate, formatCurrency } from '../dashboard/format'
-import { EVENT_STATUS_TONES } from './BookedEventCard'
+import { EVENT_TYPES, toISO } from '../calendar/calendarUtils'
 import BookingStepper, { bookingSteps } from './BookingStepper'
 import VenuePicker from './VenuePicker'
 import BookingCard from './BookingCard'
+import { useSystem, venueUnavailableReason, employeeUnavailableReason } from '../dashboard/SystemState'
+import { useData } from '../../api/data'
+import { api, API_URL } from '../../api/client'
+import '../../pages/landingFx.css'
 
 const PIPELINE_STEPS = bookingSteps.slice(0, 5)
-const PAYMENT_METHODS = ['Bank Transfer', 'GCash', 'Credit Card', 'Cash']
-const EVENT_TYPES = ['Corporate Event', 'Wedding', 'Birthday Party', 'Festival', 'Seminar', 'Anniversary']
 const PAY_METHODS = [
+  { key: 'GCash', icon: Smartphone },
   { key: 'Card', icon: CreditCard },
-  { key: 'G-Cash', icon: Smartphone },
-  { key: 'PayPal', icon: Wallet },
 ]
-
-function paymentFor(event) {
-  const method = PAYMENT_METHODS[(event.Id - 1) % PAYMENT_METHODS.length]
-  const deposit = Math.round((event.fee || 0) * 0.3)
-  return { method, deposit, balance: (event.fee || 0) - deposit }
-}
-
-function toISO(d) {
-  if (!d) return ''
-  const date = d instanceof Date ? d : new Date(d)
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
 
 function Meta({ icon: Icon, label, value }) {
   return (
@@ -67,20 +56,6 @@ function ConfirmSection({ title, onEdit, children }) {
       </div>
       <div className="mt-3 mb-3 border-b border-dashed border-gray-200 dark:border-[#2A2A36]/60 pb-3" />
       <div className="space-y-2 text-sm leading-relaxed text-gray-700 dark:text-gray-300">{children}</div>
-    </div>
-  )
-}
-
-function BrandBadge({ type }) {
-  const label =
-    type === 'G-Cash'
-      ? { text: 'GCASH', className: 'text-blue-600 dark:text-blue-400' }
-      : type === 'PayPal'
-        ? { text: 'PayPal', className: 'font-italic text-blue-700 dark:text-blue-400' }
-        : { text: 'VISA', className: 'italic text-blue-800 dark:text-blue-400' }
-  return (
-    <div className="mb-2 flex h-7 w-12 items-center justify-center rounded border border-gray-200 dark:border-[#2A2A36] bg-gray-50 dark:bg-[#0B0B0E] p-1">
-      <span className={`text-[9px] font-bold ${label.className}`}>{label.text}</span>
     </div>
   )
 }
@@ -156,40 +131,132 @@ export default function EventDetailDrawer({ event, client, venue, venues = [], e
     StartTime: event.StartTime,
     EventDate: toISO(event.StartDate),
     SpecialRequirements: event.SpecialRequirements,
+    AccessType: event.AccessType || 'Private',
   })
+  const [clientForm, setClientForm] = useState({
+    CompanyName: client?.CompanyName || '',
+    ContactName: client?.ContactPerson || '',
+    Email: client?.Email || '',
+    Phone: client?.Phone || '',
+    Address: client?.Address || '',
+  })
+  const isNewBooking = typeof event.Id === 'string'
   const [venueId, setVenueId] = useState(event.VenueId)
   const [localVenues, setLocalVenues] = useState(venues)
   const [venueSearch, setVenueSearch] = useState('')
   const [addVenueMode, setAddVenueMode] = useState(false)
   const [venueForm, setVenueForm] = useState({ Name: '', Address: '', Capacity: '', PricePerDay: '' })
   const [localEmployees, setLocalEmployees] = useState(employees)
+  const { employees: sysEmployees, empStatus, venueStatus, assignments } = useSystem()
+  const { data } = useData()
+  const allEvents = data.events
+  const eventDate = form.EventDate ? new Date(`${form.EventDate}T00:00:00`) : event.StartDate
+  const currentEvent = { ...event, StartDate: eventDate }
+
+  const cancelAction = isNewBooking ? null : handleCancelBooking
+
+  const venueBlocked = {}
+  ;(localVenues || []).forEach(v => {
+    const r = venueUnavailableReason(v, currentEvent, allEvents, venueStatus || {})
+    if (r) venueBlocked[v.Id] = r
+  })
+  const teamSource = sysEmployees && sysEmployees.length ? sysEmployees : localEmployees
+  const empBlocked = {}
+  teamSource.forEach(e => {
+    const r = employeeUnavailableReason(e, currentEvent, allEvents, assignments || {}, empStatus || {})
+    if (r) empBlocked[e.Id] = r
+  })
+
   const [staffRows, setStaffRows] = useState([
     { teamId: null, venueId: event.VenueId },
     { teamId: null, venueId: null },
   ])
-  const [payMethod, setPayMethod] = useState('Card')
-  const [showQr, setShowQr] = useState(false)
-  const [cardForm, setCardForm] = useState({ Holder: '', Number: '', Expiry: '', Cvv: '' })
-  const [gcashForm, setGcashForm] = useState({ Number: '', Name: '' })
-  const [paypalForm, setPaypalForm] = useState({ Email: '' })
 
-  const payment = paymentFor(event)
-  const cardLast4 = cardForm.Number.replace(/\D/g, '').slice(-4)
-  const gcashLast4 = gcashForm.Number.replace(/\D/g, '').slice(-4)
-  const displayName = client?.CompanyName || event.Name
-  const displayEmail = client?.Email || '—'
+  /* ── payment entries: each row = method + amount + reference + proof photo.
+     A row only "counts" (stacks) once a proof photo is attached. ── */
+  function makeRow() {
+    return {
+      key: `pay-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      method: 'GCash',
+      amount: '',
+      reference: '',
+      file: null,
+      preview: null,
+      sessionId: null,
+      paymongoBusy: false,
+    }
+  }
+  const [payRows, setPayRows] = useState([makeRow()])
+  function setRow(key, patch) {
+    setPayRows(rs => rs.map(r => (r.key === key ? { ...r, ...patch } : r)))
+  }
+  function removeRow(key) {
+    setPayRows(rs => rs.filter(r => r.key !== key))
+  }
+  function addRow() {
+    const last = payRows[payRows.length - 1]
+    if (last && !last.preview) { alert('Complete the current payment first — attach its proof screenshot before adding another.'); return }
+    setPayRows(rs => [...rs, makeRow()])
+  }
+  function attachEvidence(key, file) {
+    if (!file || !file.type.startsWith('image/')) { alert('Payment proof must be an image (png, jpg, jpeg, gif, webp).'); return }
+    setRow(key, { file, preview: URL.createObjectURL(file) })
+  }
+  async function payOnline(row) {
+    const amount = Number(row.amount) || 0
+    if (amount <= 0) { alert('Enter an amount first.'); return }
+    setRow(row.key, { paymongoBusy: true })
+    try {
+      const res = await api.post('/api/payments/paymongo-checkout', {
+        amount,
+        description: form.Name || event.Name || 'Event booking',
+        successUrl: `${window.location.origin}${window.location.pathname}?paymongo=success`,
+        cancelUrl: `${window.location.origin}${window.location.pathname}?paymongo=cancelled`,
+      })
+      setRow(row.key, { sessionId: res.sessionId, reference: row.reference || res.sessionId.slice(-10) })
+      window.open(res.checkoutUrl, '_blank', 'noopener')
+    } catch (err) {
+      alert(err.message || 'Could not create the payment link.')
+    } finally {
+      setRow(row.key, { paymongoBusy: false })
+    }
+  }
+
+  const filledRows = payRows.filter(r => r.preview)
+  const totalPaid = filledRows.reduce((s, r) => s + (Number(r.amount) || 0), 0)
+  const fee = event.fee || 0
+
+  /* For existing Booked/Completed bookings, pull real recorded payments from the
+     backend so the confirmation tab reflects reality; for the live booking-flow
+     we use the in-progress filledRows instead. */
+  const existingInvoice = !isNewBooking ? (data.invoices || []).find(i => i.eventId === event.Id) : null
+  const existingPayments = existingInvoice
+    ? (data.payments || []).filter(p => p.InvoiceId === existingInvoice.id)
+    : []
+  const viewPayments = !isNewBooking && existingPayments.length > 0
+    ? existingPayments.map(p => ({ key: `ep-${p.Id}`, method: p.Method, amount: p.Amount, reference: p.Reference, img: p.EvidencePath ? `${API_URL}${p.EvidencePath}` : null }))
+    : filledRows.map(r => ({ key: r.key, method: r.method, amount: Number(r.amount) || 0, reference: r.reference || '', img: r.preview || null }))
+  const viewTotal = !isNewBooking && existingPayments.length > 0
+    ? existingPayments.reduce((s, p) => s + (Number(p.Amount) || 0), 0)
+    : totalPaid
+
+  const draftClient = !client && isNewBooking
+    ? { CompanyName: clientForm.CompanyName, ContactPerson: clientForm.ContactName, Email: clientForm.Email, Phone: clientForm.Phone, Address: clientForm.Address }
+    : null
+  const effectiveClient = client || draftClient
+  const displayName = effectiveClient?.CompanyName || event.Name || 'New Booking'
+  const displayEmail = effectiveClient?.Email || '—'
   const selectedVenue = localVenues.find(v => v.Id === venueId) || venue
 
-  const teamOptions = localEmployees.map(e => ({ id: e.Id, label: `${e.FirstName} ${e.LastName}`, sub: e.Role }))
+  const teamOptions = teamSource.map(e => ({ id: e.Id, label: `${e.FirstName} ${e.LastName}`, sub: e.Role }))
   const venueOptions = localVenues.map(v => ({ id: v.Id, label: v.Name, sub: v.City }))
-  const assignedStaff = staffRows.filter(r => r.teamId).length
   const filteredVenues = localVenues.filter(v =>
     `${v.Name} ${v.Address} ${v.City}`.toLowerCase().includes(venueSearch.toLowerCase())
   )
 
   const bookingFor = {
     title: event.Name,
-    client: client?.CompanyName,
+    client: effectiveClient?.CompanyName,
     weekday: event.StartDate.toLocaleDateString('en-US', { weekday: 'long' }),
     timeLabel: event.StartTime,
     dateLabel: event.StartDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
@@ -205,6 +272,7 @@ export default function EventDetailDrawer({ event, client, venue, venues = [], e
       StartTime: form.StartTime,
       StartDate: new Date(`${form.EventDate}T00:00:00`),
       SpecialRequirements: form.SpecialRequirements,
+      AccessType: form.AccessType,
     }
   }
 
@@ -233,6 +301,39 @@ export default function EventDetailDrawer({ event, client, venue, venues = [], e
         <p className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Event Detail</p>
 
         <div className="flex flex-1 flex-col gap-4">
+          {!client && (
+            <section className="rounded-xl border border-[#E5E7EB] dark:border-[#2A2A36] bg-gray-50 dark:bg-[#0B0B0E] p-4 space-y-4">
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">Client Information</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Client / Company Name</Label>
+                  <input type="text" className={inputClass} placeholder="e.g. Heritage Bank" value={clientForm.CompanyName}
+                    onChange={e => setClientForm(f => ({ ...f, CompanyName: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Contact Person</Label>
+                  <input type="text" className={inputClass} placeholder="Full name" value={clientForm.ContactName}
+                    onChange={e => setClientForm(f => ({ ...f, ContactName: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Email</Label>
+                  <input type="email" className={inputClass} placeholder="client@email.com" value={clientForm.Email}
+                    onChange={e => setClientForm(f => ({ ...f, Email: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Phone</Label>
+                  <input type="text" className={inputClass} placeholder="+63 900 000 0000" value={clientForm.Phone}
+                    onChange={e => setClientForm(f => ({ ...f, Phone: e.target.value }))} />
+                </div>
+                <div className="md:col-span-2">
+                  <Label>Address</Label>
+                  <input type="text" className={inputClass} placeholder="City / Province" value={clientForm.Address}
+                    onChange={e => setClientForm(f => ({ ...f, Address: e.target.value }))} />
+                </div>
+              </div>
+            </section>
+          )}
+
           <div>
             <Label>Event Name <Required /></Label>
             <input type="text" className={inputClass} placeholder="Enter event name" value={form.Name}
@@ -268,6 +369,15 @@ export default function EventDetailDrawer({ event, client, venue, venues = [], e
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
+              <Label hint="Public events appear on the site">Access <Required /></Label>
+              <Select value={form.AccessType}
+                onChange={v => setForm(f => ({ ...f, AccessType: v }))}
+                options={['Private', 'Public']} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
               <Label>Venue <Required /></Label>
               <div className="relative">
                 <select
@@ -279,9 +389,14 @@ export default function EventDetailDrawer({ event, client, venue, venues = [], e
                   }}
                   className={`${inputClass} appearance-none pr-9`}
                 >
-                  {localVenues.map(v => (
-                    <option key={v.Id} value={v.Id}>{v.Name}</option>
-                  ))}
+                  {localVenues.map(v => {
+                    const blocked = venueBlocked[v.Id]
+                    return (
+                      <option key={v.Id} value={v.Id} disabled={!!blocked}>
+                        {blocked ? `${v.Name} — unavailable this date` : v.Name}
+                      </option>
+                    )
+                  })}
                 </select>
                 <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
               </div>
@@ -294,7 +409,7 @@ export default function EventDetailDrawer({ event, client, venue, venues = [], e
             </div>
           </div>
 
-          <StepFooter onSave={() => onSave && onSave(buildPayload())} onProceed={() => setPipelineStep(1)} onCancel={handleCancelBooking} />
+          <StepFooter onSave={() => onSave && onSave({ ...buildPayload(), _clientInfo: clientForm })} onProceed={() => setPipelineStep(1)} onCancel={cancelAction} />
         </div>
       </div>
     )
@@ -344,78 +459,19 @@ export default function EventDetailDrawer({ event, client, venue, venues = [], e
           </div>
 
           <StepFooter
-            onSave={() => { createVenue(); setAddVenueMode(false) }}
-            onProceed={() => { createVenue(); setAddVenueMode(false); setPipelineStep(2) }}
-            onCancel={handleCancelBooking}
+            onSave={() => {
+              const v = createVenue()
+              onSave && onSave({ VenueId: v.Id, _newVenue: v })
+              setAddVenueMode(false)
+            }}
+            onProceed={() => {
+              const v = createVenue()
+              onSave && onSave({ VenueId: v.Id, _newVenue: v })
+              setAddVenueMode(false)
+              setPipelineStep(2)
+            }}
+            onCancel={cancelAction}
           />
-        </div>
-      </div>
-    )
-  }
-
-  function renderCardForm() {
-    return (
-      <div className="space-y-4">
-        <p className="text-sm font-semibold text-gray-900 dark:text-white">Card</p>
-        <div>
-          <Label>Cardholder Name <Required /></Label>
-          <input type="text" className={inputClass} placeholder="Enter cardholder name"
-            value={cardForm.Holder}
-            onChange={e => setCardForm(f => ({ ...f, Holder: e.target.value }))} />
-        </div>
-        <div>
-          <Label>Card Number <Required /></Label>
-          <input type="text" inputMode="numeric" className={inputClass} placeholder="1234 5678 9012 3456"
-            value={cardForm.Number}
-            onChange={e => setCardForm(f => ({ ...f, Number: e.target.value }))} />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <Label>Expiry Date <Required /></Label>
-            <input type="text" className={inputClass} placeholder="MM/YY"
-              value={cardForm.Expiry}
-              onChange={e => setCardForm(f => ({ ...f, Expiry: e.target.value }))} />
-          </div>
-          <div>
-            <Label>CVV <Required /></Label>
-            <input type="text" inputMode="numeric" maxLength={4} className={inputClass} placeholder="123"
-              value={cardForm.Cvv}
-              onChange={e => setCardForm(f => ({ ...f, Cvv: e.target.value }))} />
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  function renderGCashForm() {
-    return (
-      <div className="space-y-4">
-        <p className="text-sm font-semibold text-gray-900 dark:text-white">G-Cash</p>
-        <div>
-          <Label>GCash Number <Required /></Label>
-          <input type="text" inputMode="numeric" className={inputClass} placeholder="09XX XXX XXXX"
-            value={gcashForm.Number}
-            onChange={e => setGcashForm(f => ({ ...f, Number: e.target.value }))} />
-        </div>
-        <div>
-          <Label hint="Optional">Account Name</Label>
-          <input type="text" className={inputClass} placeholder="Enter registered GCash name"
-            value={gcashForm.Name}
-            onChange={e => setGcashForm(f => ({ ...f, Name: e.target.value }))} />
-        </div>
-      </div>
-    )
-  }
-
-  function renderPayPalForm() {
-    return (
-      <div className="space-y-4">
-        <p className="text-sm font-semibold text-gray-900 dark:text-white">PayPal</p>
-        <div>
-          <Label>PayPal Email <Required /></Label>
-          <input type="email" className={inputClass} placeholder="you@example.com"
-            value={paypalForm.Email}
-            onChange={e => setPaypalForm(f => ({ ...f, Email: e.target.value }))} />
         </div>
       </div>
     )
@@ -425,15 +481,132 @@ export default function EventDetailDrawer({ event, client, venue, venues = [], e
     onCancel && onCancel(event)
   }
 
+  function renderPaymentStep() {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
+        <div className="shrink-0">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xl font-bold text-gray-900 dark:text-white">Payment details</p>
+            <span className="rounded-full bg-[#FF2B66]/10 text-[#FF2B66] text-xs font-extrabold px-2.5 py-1">
+              {filledRows.length} paid · {formatCurrency(totalPaid)}
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-gray-500 dark:text-[#9CA3AF]">
+            GCash or Card only. Attach the proof screenshot of each payment — an entry only counts once a photo is uploaded, and you can add more for partial payments.
+          </p>
+        </div>
+
+        <div className="flex-1 overflow-y-auto no-scrollbar space-y-3">
+          {payRows.map((row, i) => {
+            const filled = !!row.preview
+            return (
+              <div key={row.key} className={`rounded-2xl border p-4 bg-white dark:bg-[#121217] transition-colors ${filled ? 'border-emerald-500/50' : 'border-gray-200 dark:border-[#2A2A36]'}`}>
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">Payment {i + 1}</p>
+                  <div className="flex items-center gap-2">
+                    {filled ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-500/15 px-2.5 py-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-300">
+                        <CheckCircle2 size={11} /> Ready
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-gray-100 dark:bg-white/5 px-2.5 py-1 text-[10px] font-bold text-gray-400">
+                        Needs proof photo
+                      </span>
+                    )}
+                    {payRows.length > 1 && (
+                      <button onClick={() => removeRow(row.key)} aria-label="Remove payment"
+                        className="h-7 w-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-500/10 transition-colors">
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Method</Label>
+                    <div className="flex gap-1.5">
+                      {PAY_METHODS.map(m => {
+                        const active = row.method === m.key
+                        const Icon = m.icon
+                        return (
+                          <button key={m.key} onClick={() => setRow(row.key, { method: m.key })}
+                            className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all ${
+                              active
+                                ? 'bg-[#FF2B66] text-white shadow'
+                                : 'bg-gray-100 dark:bg-[#181820] text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#22222C]'
+                            }`}>
+                            <Icon size={14} /> {m.key}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Amount (₱)</Label>
+                    <input type="number" min="0" className={inputClass} placeholder="0.00"
+                      value={row.amount}
+                      onChange={e => setRow(row.key, { amount: e.target.value })} />
+                  </div>
+                </div>
+
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <Label hint="Optional">Reference / Note</Label>
+                    <input type="text" className={inputClass} placeholder="e.g. reference # / session id"
+                      value={row.reference}
+                      onChange={e => setRow(row.key, { reference: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label hint="Optional">Pay online (PayMongo sandbox)</Label>
+                    <button onClick={() => payOnline(row)} disabled={row.paymongoBusy}
+                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-[#FF2B66]/40 bg-[#FF2B66]/10 px-3 py-2.5 text-xs font-bold text-[#FF2B66] hover:bg-[#FF2B66]/20 transition-colors disabled:opacity-60">
+                      {row.paymongoBusy ? <Loader2 size={13} className="animate-spin" /> : <ExternalLink size={13} />}
+                      {row.sessionId ? 'Open payment link again' : 'Pay with GCash / Card'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-3 flex items-center gap-3">
+                  <label className="flex-1 cursor-pointer inline-flex items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 dark:border-[#2A2A36] px-4 py-3 text-xs font-semibold text-gray-500 dark:text-[#9CA3AF] hover:border-[#FF2B66]/60 hover:text-[#FF2B66] transition-colors">
+                    <ImagePlus size={16} />
+                    {row.preview ? 'Replace proof screenshot' : 'Upload proof screenshot'}
+                    <input type="file" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp" className="hidden"
+                      onChange={e => attachEvidence(row.key, e.target.files?.[0])} />
+                  </label>
+                  {row.preview && (
+                    <img src={row.preview} alt="Payment proof" className="h-14 w-14 shrink-0 rounded-lg object-cover border border-gray-200 dark:border-[#2A2A36]" />
+                  )}
+                </div>
+              </div>
+            )
+          })}
+
+          <button onClick={addRow}
+            className="w-full inline-flex items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-300 dark:border-[#2A2A36] py-3 text-sm font-semibold text-gray-500 dark:text-[#9CA3AF] hover:border-[#FF2B66]/60 hover:text-[#FF2B66] transition-colors">
+            <Plus size={16} /> Add another payment
+          </button>
+        </div>
+
+        <StepFooter
+          onSave={() => onSave && onSave({ _payments: filledRows })}
+          onProceed={() => setPipelineStep(4)}
+          onCancel={cancelAction}
+        />
+      </div>
+    )
+  }
+
   function renderConfirmationView({ allowEdit }) {
     return (
       <div className="grid min-h-0 flex-1 auto-rows-auto md:auto-rows-fr grid-cols-1 md:grid-cols-2 border-dashed border-gray-200 dark:border-[#2A2A36]/60">
         <div className="px-6 pt-2 pb-10 md:pb-0 md:pt-2 md:pl-0 md:pr-12">
           <ConfirmSection title="Client's Information" onEdit={allowEdit ? () => setPipelineStep(0) : null}>
-            <Detail label="Company" value={client?.CompanyName} />
-            <Detail label="Phone" value={client?.Phone} />
-            <Detail label="Email" value={client?.Email} />
-            <Detail label="Address" value={client?.Address} />
+            <Detail label="Company" value={effectiveClient?.CompanyName || '—'} />
+            <Detail label="Contact Person" value={effectiveClient?.ContactPerson || '—'} />
+            <Detail label="Phone" value={effectiveClient?.Phone || '—'} />
+            <Detail label="Email" value={effectiveClient?.Email || '—'} />
+            <Detail label="Address" value={effectiveClient?.Address || '—'} />
           </ConfirmSection>
         </div>
 
@@ -455,39 +628,51 @@ export default function EventDetailDrawer({ event, client, venue, venues = [], e
 
         <div className="px-6 pt-10 pb-6 border-t border-dashed border-gray-200 dark:border-[#2A2A36]/60 md:pt-14 md:pb-0 md:pl-0 md:pr-12">
           <ConfirmSection title="Payment" onEdit={allowEdit ? () => setPipelineStep(3) : null}>
-            {payMethod === 'Card' && (
-              <>
-                <BrandBadge type="Card" />
-                <p className="font-medium text-gray-700 dark:text-gray-300">
-                  Visa card ending in {cardLast4 || '••••'}
-                </p>
-              </>
+            {viewPayments.length === 0 && (
+              <p className="text-gray-400 dark:text-[#6B7280]">No payment recorded yet — billed after booking.</p>
             )}
-            {payMethod === 'G-Cash' && (
-              <>
-                <BrandBadge type="G-Cash" />
-                <p className="font-medium text-gray-700 dark:text-gray-300">
-                  GCash ending in {gcashLast4 || '••••'}
-                </p>
-              </>
-            )}
-            {payMethod === 'PayPal' && (
-              <>
-                <BrandBadge type="PayPal" />
-                <p className="break-words font-medium text-gray-700 dark:text-gray-300">
-                  {paypalForm.Email || 'PayPal account'}
-                </p>
-              </>
-            )}
+            {viewPayments.map(r => (
+              <div key={r.key} className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 min-w-0">
+                  {r.method === 'GCash'
+                    ? <Smartphone size={14} className="shrink-0 text-blue-500" />
+                    : <CreditCard size={14} className="shrink-0 text-blue-400" />}
+                  <span className="truncate">{r.method}{r.reference ? ` · ${r.reference}` : ''}</span>
+                </span>
+                <span className="font-medium shrink-0">{formatCurrency(r.amount)}</span>
+              </div>
+            ))}
+            <Detail label="Total paid" value={formatCurrency(viewTotal)} />
           </ConfirmSection>
         </div>
 
         <div className="px-6 pt-10 pb-6 border-t border-dashed border-gray-200 dark:border-[#2A2A36]/60 md:pt-14 md:pb-0 md:pl-12 md:pr-0 md:border-l">
-          <ConfirmSection title="Receipt/Invoice" onEdit={allowEdit ? () => setPipelineStep(3) : null}>
-            <Detail label="Venue Fee" value={formatCurrency(event.fee)} />
-            <Detail label="Deposit (30%)" value={formatCurrency(payment.deposit)} />
-            <Detail label="Balance" value={formatCurrency(payment.balance)} />
-            <Detail label="Total" value={formatCurrency(event.fee)} />
+          <ConfirmSection title="Receipt / Invoice" onEdit={allowEdit ? () => setPipelineStep(3) : null}>
+            {viewPayments.length > 0 ? (
+              <div className="space-y-2">
+                {viewPayments.map(r => (
+                  <div key={r.key} className="flex items-center gap-3 rounded-lg border border-gray-200 dark:border-[#2A2A36] p-2">
+                    {r.img ? (
+                      <img src={r.img} alt="Proof" className="h-10 w-10 rounded object-cover shrink-0" />
+                    ) : (
+                      <span className="h-10 w-10 shrink-0 rounded bg-gray-100 dark:bg-[#181820] flex items-center justify-center text-gray-400">
+                        <CreditCard size={14} />
+                      </span>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-gray-900 dark:text-white">{r.method} · {formatCurrency(r.amount)}</p>
+                      <p className="text-[10px] text-gray-400 dark:text-[#6B7280] truncate">{r.reference || 'No reference'}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-400 dark:text-[#6B7280]">No proof screenshots yet.</p>
+            )}
+            <Detail label="Venue Fee" value={formatCurrency(fee)} />
+            <Detail label="Paid to date" value={formatCurrency(viewTotal)} />
+            <Detail label="Balance on event day" value={formatCurrency(Math.max(0, fee - viewTotal))} />
+            <Detail label="Total" value={formatCurrency(fee)} />
           </ConfirmSection>
         </div>
       </div>
@@ -509,10 +694,10 @@ export default function EventDetailDrawer({ event, client, venue, venues = [], e
                 onChange={e => setVenueSearch(e.target.value)} />
             </div>
             <div>
-              <VenuePicker venues={filteredVenues} selectedId={venueId} onSelect={setVenueId}
+              <VenuePicker venues={filteredVenues} selectedId={venueId} onSelect={setVenueId} disabledVenues={venueBlocked}
                 onAddVenue={() => setAddVenueMode(true)} />
             </div>
-            <StepFooter onSave={() => onSave && onSave({ VenueId: venueId })} onProceed={() => setPipelineStep(2)} onCancel={handleCancelBooking} />
+            <StepFooter onSave={() => onSave && onSave({ VenueId: venueId })} onProceed={() => setPipelineStep(2)} onCancel={cancelAction} />
           </div>
         )
       case 2:
@@ -525,97 +710,45 @@ export default function EventDetailDrawer({ event, client, venue, venues = [], e
                 expandedDefault
                 teamOptions={teamOptions}
                 venueOptions={venueOptions}
+                disabledTeamOptions={empBlocked}
+                disabledVenueOptions={venueBlocked}
                 rows={staffRows}
                 onRowsChange={setStaffRows}
                 onAddRow={addStaffRow}
               />
             </div>
-            <StepFooter onSave={() => onSave && onSave({ staff: staffRows })} onProceed={() => setPipelineStep(3)} onCancel={handleCancelBooking} />
+            <StepFooter onSave={() => onSave && onSave({ staff: staffRows })} onProceed={() => setPipelineStep(3)} onCancel={cancelAction} />
           </div>
         )
       case 3:
-        return (
-          <div className="flex min-h-0 flex-1 flex-col gap-4">
-            <div className="shrink-0">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xl font-bold text-gray-900 dark:text-white">Payment details</p>
-                <button onClick={() => setShowQr(q => !q)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#FF2B66]/40 bg-[#FF2B66]/10 px-2.5 py-1 text-xs font-semibold text-[#FF2B66] hover:bg-[#FF2B66]/20 transition-colors">
-                  <QrCode size={14} /> QR code
-                </button>
-              </div>
-              {showQr && (
-                <div className="mt-3 rounded-xl border-2 border-dashed border-[#FF2B66]/40 bg-[#FF2B66]/5 p-4 text-center">
-                  <QrCode size={56} className="mx-auto text-[#FF2B66]" />
-                  <p className="mt-2 text-xs font-medium text-gray-500 dark:text-[#9CA3AF]">
-                    Scan to pay with your GCash or bank app
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="grid grid-cols-3 gap-3 shrink-0">
-              {PAY_METHODS.map(m => {
-                const active = payMethod === m.key
-                const Icon = m.icon
-                return (
-                  <button key={m.key} onClick={() => setPayMethod(m.key)}
-                    className={`inline-flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium transition-all ${
-                      active
-                        ? 'bg-[#FF2B66] text-white shadow-lg shadow-[#FF2B66]/25'
-                        : 'bg-[#F4F4F9] dark:bg-[#181820] text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-[#22222C]'
-                    }`}>
-                    <Icon size={16} /> {m.key}
-                  </button>
-                )
-              })}
-            </div>
-
-            <div className="flex-1 rounded-xl border border-[#E5E7EB] dark:border-[#2A2A36] bg-white dark:bg-[#121217] p-5">
-              {payMethod === 'Card' && renderCardForm()}
-              {payMethod === 'G-Cash' && renderGCashForm()}
-              {payMethod === 'PayPal' && renderPayPalForm()}
-            </div>
-
-            <div className="rounded-xl border border-[#E5E7EB] dark:border-[#2A2A36] bg-white dark:bg-[#121217] divide-y divide-gray-100 dark:divide-[#2A2A36]/60">
-              <div className="flex items-center justify-between gap-3 px-4 py-2.5">
-                <span className="text-sm text-gray-700 dark:text-gray-300">Venue</span>
-                <span className="truncate text-sm font-medium text-gray-900 dark:text-white">{selectedVenue?.Name}</span>
-              </div>
-              <div className="flex items-center justify-between gap-3 px-4 py-2.5">
-                <span className="text-sm text-gray-700 dark:text-gray-300">Venue Fee</span>
-                <span className="text-sm font-medium text-gray-900 dark:text-white">{formatCurrency(event.fee)}</span>
-              </div>
-              <div className="flex items-center justify-between gap-3 px-4 py-2.5">
-                <span className="text-sm text-gray-700 dark:text-gray-300">Deposit (30%)</span>
-                <span className="text-sm font-medium text-gray-900 dark:text-white">{formatCurrency(payment.deposit)}</span>
-              </div>
-              <div className="flex items-center justify-between gap-3 px-4 py-2.5">
-                <span className="text-sm text-gray-700 dark:text-gray-300">Method</span>
-                <span className="text-sm font-medium text-gray-900 dark:text-white">{payMethod}</span>
-              </div>
-              <div className="flex items-center justify-between gap-3 px-4 py-3">
-                <span className="text-sm font-semibold text-gray-900 dark:text-white">Balance</span>
-                <span className="text-sm font-bold text-[#FF2B66]">{formatCurrency(payment.balance)}</span>
-              </div>
-            </div>
-            <StepFooter
-              onSave={() => onSave && onSave({ paymentMethod: payMethod, card: cardForm, gcash: gcashForm, paypal: paypalForm })}
-              onProceed={() => setPipelineStep(4)}
-              onCancel={handleCancelBooking}
-            />
-          </div>
-        )
+        return renderPaymentStep()
       case 4:
         return (
           <div className="flex min-h-0 flex-1 flex-col gap-4">
             {renderConfirmationView({ allowEdit: true })}
             <StepFooter
               onSave={() => onSave && onSave({})}
-              onProceed={() => onConfirm && onConfirm(event)}
+              onProceed={() => onConfirm && onConfirm({
+                ...event,
+                _clientInfo: clientForm,
+                Name: form.Name || event.Name,
+                EventType: form.EventType,
+                VenueId: venueId ?? Number(form.VenueId) ?? event.VenueId,
+                Guests: Number(form.Guests) || event.Guests || 0,
+                StartTime: form.StartTime || event.StartTime,
+                StartDate: eventDate,
+                EndDate: eventDate,
+                SpecialRequirements: form.SpecialRequirements,
+                AccessType: form.AccessType,
+              }, filledRows.map(r => ({
+                method: r.method,
+                amount: Number(r.amount) || 0,
+                reference: r.reference || '',
+                file: r.file,
+              })))}
               proceedLabel="Confirm Booking"
               proceedIcon={Check}
-              onCancel={handleCancelBooking}
+              onCancel={cancelAction}
             />
           </div>
         )
@@ -659,8 +792,8 @@ export default function EventDetailDrawer({ event, client, venue, venues = [], e
         <div className="no-scrollbar flex-1 min-h-0 overflow-y-auto">
           <div className="flex min-h-full flex-col gap-6 p-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 shrink-0">
-              <Meta icon={Phone} label="Phone" value={client?.Phone} />
-              <Meta icon={Home} label="Address" value={client?.Address} />
+              <Meta icon={Phone} label="Phone" value={effectiveClient?.Phone} />
+              <Meta icon={Home} label="Address" value={effectiveClient?.Address} />
               <Meta icon={CalendarRange} label="Event Type" value={event.EventType} />
               <Meta icon={CircleDot} label="Status" value={event.Status} />
             </div>
@@ -684,7 +817,7 @@ export default function EventDetailDrawer({ event, client, venue, venues = [], e
               </div>
 
               {showPipeline ? (
-                <div className="flex min-h-0 flex-1 flex-col">{renderPipelineStep()}</div>
+                <div key={pipelineStep} className="fx-tab-panel flex min-h-0 flex-1 flex-col">{renderPipelineStep()}</div>
               ) : event.Status === 'Booked' || event.Status === 'Completed' ? (
                 <div className="flex min-h-0 flex-1 flex-col">
                   {renderConfirmationView({ allowEdit: false })}

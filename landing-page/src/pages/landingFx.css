@@ -1,0 +1,148 @@
+/* Landing-page-only effects. Additive — does not modify existing styles/palette. */
+
+/* ── entrance / reveal ── */
+@keyframes fx-fade-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fx-reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s ease, transform 0.7s ease; }
+.fx-reveal.fx-in { opacity: 1; transform: translateY(0); }
+@media (prefers-reduced-motion: reduce) {
+  .fx-reveal { opacity: 1; transform: none; transition: none; }
+}
+
+.fx-entrance { animation: fx-fade-up 0.8s ease both; }
+.fx-d1 { animation-delay: 0.1s; }
+.fx-d2 { animation-delay: 0.22s; }
+.fx-d3 { animation-delay: 0.34s; }
+.fx-d4 { animation-delay: 0.46s; }
+
+/* ── hero glow orbs ── */
+@keyframes fx-float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(18px, -22px) scale(1.06); }
+}
+.fx-orb { position: absolute; border-radius: 9999px; filter: blur(70px); pointer-events: none; z-index: 0; }
+.fx-orb-a { width: 320px; height: 320px; background: rgba(255, 43, 102, 0.12); top: -60px; left: -60px; animation: fx-float 9s ease-in-out infinite; }
+.fx-orb-b { width: 260px; height: 260px; background: rgba(255, 43, 102, 0.08); bottom: -40px; right: -40px; animation: fx-float 11s ease-in-out infinite reverse; }
+
+/* ── pulsing play button ── */
+@keyframes fx-pulse-ring {
+  0%   { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+.fx-pulse::before, .fx-pulse::after {
+  content: ''; position: absolute; inset: 0; border-radius: 9999px;
+  border: 2px solid rgba(255, 43, 102, 0.7); animation: fx-pulse-ring 2.2s ease-out infinite;
+}
+.fx-pulse::after { animation-delay: 1.1s; }
+
+/* ── scroll progress bar ── */
+.fx-progress {
+  position: fixed; top: 0; left: 0; height: 3px; z-index: 60;
+  background: linear-gradient(90deg, #FF2B66, #ff5c8a);
+  transition: width 0.1s linear;
+}
+
+/* ── marquee ── */
+@keyframes fx-marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.fx-marquee { overflow: hidden; position: relative; }
+.fx-marquee-track { display: flex; width: max-content; animation: fx-marquee 28s linear infinite; }
+.fx-marquee:hover .fx-marquee-track { animation-play-state: paused; }
+.fx-marquee::before, .fx-marquee::after {
+  content: ''; position: absolute; top: 0; bottom: 0; width: 24px; z-index: 1;
+}
+.fx-marquee::before { left: 0;  background: linear-gradient(90deg, #0B0B0E, transparent); }
+.fx-marquee::after  { right: 0; background: linear-gradient(270deg, #0B0B0E, transparent); }
+
+/* ── card hover lift / shine ── */
+.fx-lift { transition: transform 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease; }
+.fx-lift:hover { transform: translateY(-6px); box-shadow: 0 18px 40px -18px rgba(255, 43, 102, 0.25); border-color: rgba(255, 43, 102, 0.35); }
+
+.fx-icon-wrap { transition: transform 0.35s ease, background 0.35s ease; }
+.fx-lift:hover .fx-icon-wrap { transform: scale(1.12) rotate(-4deg); }
+
+/* ── back to top ── */
+.fx-totop {
+  position: fixed; right: 24px; bottom: 24px; z-index: 50;
+  opacity: 0; transform: translateY(12px); pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.fx-totop.fx-show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+
+/* ── sign-in modal transitions ── */
+.fx-modal-backdrop {
+  position: fixed; inset: 0; z-index: 65; display: flex; align-items: center; justify-content: center; padding: 1rem;
+  background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(4px);
+  opacity: 0; transition: opacity 0.3s ease;
+}
+.fx-modal-backdrop.fx-open { opacity: 1; }
+.fx-modal-panel {
+  max-width: 420px; width: 100%;
+  transform: translateY(24px) scale(0.96); opacity: 0;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease;
+}
+.fx-modal-panel { scrollbar-width: none; -ms-overflow-style: none; }
+.fx-modal-panel::-webkit-scrollbar { display: none; }
+.fx-modal-backdrop.fx-open .fx-modal-panel { transform: translateY(0) scale(1); opacity: 1; }
+.fx-modal-panel.fx-error { animation: fx-shake 0.45s ease; }
+@keyframes fx-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-9px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(3px); }
+}
+@keyframes fx-fade-swap {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fx-mode-swap { animation: fx-fade-swap 0.35s ease both; }
+
+/* ── tab / panel switch ── */
+@keyframes fx-tab-panel {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fx-tab-panel { animation: fx-tab-panel 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .fx-tab-panel { animation: none; }
+}
+
+.fx-success-pop { animation: fx-success-pop 0.5s cubic-bezier(0.22, 1.4, 0.36, 1) both; }
+@keyframes fx-success-pop {
+  from { transform: scale(0.4); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+/* ── dashboard polish ── */
+@keyframes fx-wiggle {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-8deg) scale(1.1); }
+  75% { transform: rotate(8deg) scale(1.1); }
+}
+.fx-action:hover .fx-action-icon { animation: fx-wiggle 0.45s ease; }
+.fx-action:active { transform: scale(0.96); }
+
+.fx-stat-cell { transition: background 0.25s ease, transform 0.25s ease; }
+.fx-stat-cell:hover { background: rgba(255, 43, 102, 0.04); transform: translateY(-2px); }
+
+@keyframes fx-now-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.fx-now-dot { animation: fx-now-pulse 1.6s ease-in-out infinite; }
+
+.fx-day-cell { transition: border-color 0.25s ease, transform 0.25s ease, background 0.25s ease; cursor: pointer; }
+.fx-day-cell:hover { transform: translateY(-3px); border-color: rgba(255, 43, 102, 0.4); }
+
+/* ── 3D credit card ── */
+.fx-card3d { perspective: 1200px; }
+.fx-card-inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform 0.65s cubic-bezier(0.22, 1, 0.36, 1); }
+.fx-card-inner.fx-flipped { transform: rotateY(180deg); }
+.fx-card-face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.fx-card-back { transform: rotateY(180deg); }
+.fx-day-cell:hover { transform: translateY(-3px); border-color: rgba(255, 43, 102, 0.4); }

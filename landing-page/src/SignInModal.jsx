@@ -1,49 +1,91 @@
-import { useState } from 'react'
-import { X, Sparkles } from 'lucide-react'
-import {
-  signInWithPopup,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  updateProfile,
-} from 'firebase/auth'
-import { auth, googleProvider } from './firebase'
+import { useEffect, useRef, useState } from 'react'
+import { X, Sparkles, Check, Eye, EyeOff, Loader2, CalendarCheck, Users, Star, ShieldCheck, BarChart3 } from 'lucide-react'
+import { useAuth } from './contexts/AuthContext'
+import './pages/landingFx.css'
+
+const SLIDES = [
+  { icon: CalendarCheck, stat: '1,200+', text: 'events managed end-to-end by our coordinators' },
+  { icon: Users, stat: '15K+', text: 'attendees served across 80+ countries' },
+  { icon: Star, stat: '98%', text: 'client satisfaction — and we keep the receipts' },
+]
 
 export default function SignInModal({ open, onClose, onSuccess }) {
+  const { login } = useAuth()
+  const [render, setRender] = useState(open)      // keep mounted during exit animation
+  const [shown, setShown] = useState(false)       // triggers the open transition
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [remember, setRemember] = useState(false)
   const [error, setError] = useState('')
+  const [shaking, setShaking] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [isSignUp, setIsSignUp] = useState(false)
+  const [success, setSuccess] = useState(false)
+  const [slide, setSlide] = useState(0)
+  const emailRef = useRef(null)
 
-  if (!open) return null
+  /* mount → next frame add .fx-open (plays entrance), unmount after exit */
+  useEffect(() => {
+    if (open) {
+      setRender(true)
+      const raf = requestAnimationFrame(() => setShown(true))
+      return () => cancelAnimationFrame(raf)
+    }
+    setShown(false)
+    const t = setTimeout(() => setRender(false), 320)
+    return () => clearTimeout(t)
+  }, [open])
+
+  /* rotating showcase slides */
+  useEffect(() => {
+    if (!open) return
+    const t = setInterval(() => setSlide(s => (s + 1) % SLIDES.length), 3500)
+    return () => clearInterval(t)
+  }, [open])
+
+  /* Escape to close, focus email on open */
+  useEffect(() => {
+    if (!render) return
+    const onKey = e => { if (e.key === 'Escape') handleClose() }
+    window.addEventListener('keydown', onKey)
+    const t = setTimeout(() => emailRef.current?.focus(), 380)
+    return () => { window.removeEventListener('keydown', onKey); clearTimeout(t) }
+  }, [render])
+
+  /* lock page scroll while open */
+  useEffect(() => {
+    document.body.style.overflow = open ? 'hidden' : ''
+    return () => { document.body.style.overflow = '' }
+  }, [open])
 
   function resetForm() {
     setEmail('')
     setPassword('')
     setRemember(false)
     setError('')
+    setShowPassword(false)
   }
 
   function handleClose() {
+    if (loading) return
     resetForm()
     onClose()
   }
 
-  async function handleGoogle() {
-    setError('')
-    setLoading(true)
-    try {
-      await signInWithPopup(auth, googleProvider)
-      handleClose()
+  function showError(msg) {
+    setError(msg)
+    setShaking(true)
+    setTimeout(() => setShaking(false), 500)
+  }
+
+  function finishSuccess() {
+    setSuccess(true)
+    setTimeout(() => {
+      resetForm()
+      setSuccess(false)
+      onClose()
       onSuccess?.()
-    } catch (err) {
-      if (err.code !== 'auth/popup-closed-by-user') {
-        setError(err.message)
-      }
-    } finally {
-      setLoading(false)
-    }
+    }, 900)
   }
 
   async function handleSubmit(e) {
@@ -51,144 +93,160 @@ export default function SignInModal({ open, onClose, onSuccess }) {
     setError('')
     setLoading(true)
     try {
-      if (isSignUp) {
-        const cred = await createUserWithEmailAndPassword(auth, email, password)
-        await updateProfile(cred.user, { displayName: email.split('@')[0] })
-      } else {
-        await signInWithEmailAndPassword(auth, email, password)
-      }
-      handleClose()
-      onSuccess?.()
+      await login(email, password)
+      finishSuccess()
     } catch (err) {
-      const msg = {
-        'auth/user-not-found': 'No account found with this email.',
-        'auth/wrong-password': 'Incorrect password.',
-        'auth/email-already-in-use': 'An account with this email already exists.',
-        'auth/invalid-email': 'Invalid email address.',
-        'auth/weak-password': 'Password must be at least 6 characters.',
-        'auth/invalid-credential': 'Invalid email or password.',
-      }
-      setError(msg[err.code] || err.message)
+      showError(err.message || 'Unable to sign in.')
     } finally {
       setLoading(false)
     }
   }
 
+  if (!render) return null
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
-      onClick={handleClose}>
-      <div className="max-w-[420px] w-full bg-[#121215] border border-neutral-800/80 rounded-2xl p-7 shadow-2xl"
+    <div className={`fx-modal-backdrop ${shown ? 'fx-open' : ''}`} onClick={handleClose}>
+      <div
+        className={`fx-modal-panel !max-w-[880px] flex bg-[#121215] border border-neutral-800/80 rounded-2xl shadow-2xl overflow-hidden max-h-[92vh] ${shaking ? 'fx-error' : ''}`}
         onClick={e => e.stopPropagation()}>
 
-        {/* Header Row */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className="bg-[#FF2D55] h-8 w-8 rounded-lg flex items-center justify-center text-white">
-              <Sparkles size={16} />
+        {/* ─── LEFT: SHOWCASE PANEL (desktop only) ─── */}
+        <div className="hidden md:flex flex-col justify-between w-[44%] shrink-0 relative overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=700&h=900&fit=crop"
+            alt="" className="absolute inset-0 w-full h-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#FF2D55]/85 via-[#FF2D55]/55 to-[#0B0B0E]/90" />
+
+          {/* brand */}
+          <div className="relative flex items-center gap-2.5 p-7">
+            <div className="bg-white/15 backdrop-blur h-9 w-9 rounded-lg flex items-center justify-center text-white">
+              <Sparkles size={17} />
             </div>
-            <span className="text-white text-lg font-bold">EventSphere</span>
+            <span className="text-white text-lg font-bold tracking-tight">EventSphere</span>
           </div>
-          <button onClick={handleClose}
-            className="h-8 w-8 rounded-full bg-neutral-800/70 hover:bg-neutral-800 text-neutral-400 hover:text-white flex items-center justify-center transition">
-            <X size={16} />
-          </button>
+
+          {/* rotating slides */}
+          <div className="relative px-7 pb-4">
+            <div key={slide} className="fx-mode-swap">
+              <div className="w-11 h-11 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center mb-5">
+                {(() => { const Icon = SLIDES[slide].icon; return <Icon size={20} className="text-white" /> })()}
+              </div>
+              <p className="text-4xl font-extrabold text-white tracking-tight">{SLIDES[slide].stat}</p>
+              <p className="text-white/85 text-sm leading-relaxed mt-2 max-w-[240px]">{SLIDES[slide].text}</p>
+            </div>
+          </div>
+
+          {/* quote + dots */}
+          <div className="relative px-7 pb-7">
+            <p className="text-white/80 text-xs italic leading-relaxed mb-4">
+              "They turned our launch into the event of the year. Zero hiccups, 4,000 guests."
+              <span className="block not-italic mt-1 font-semibold text-white">— Marco Pellegrini, CEO</span>
+            </p>
+            <div className="flex gap-2">
+              {SLIDES.map((_, i) => (
+                <button key={i} onClick={() => setSlide(i)} aria-label={`Slide ${i + 1}`}
+                  className={`h-1.5 rounded-full transition-all duration-400 ${i === slide ? 'w-6 bg-white' : 'w-1.5 bg-white/40 hover:bg-white/60'}`} />
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* Title & Subtitle */}
-        <div className="flex flex-col items-start text-left mb-6">
-          <h2 className="text-2xl font-bold text-white tracking-tight mb-1">
-            {isSignUp ? 'Create your account' : 'Welcome back'}
-          </h2>
-          <p className="text-xs text-neutral-400">
-            {isSignUp
-              ? 'Sign up to start planning your next event.'
-              : 'Sign in to manage your events and tickets.'}
-          </p>
-        </div>
-
-        {/* Google OAuth Button */}
-        <button onClick={handleGoogle} disabled={loading}
-          className="w-full bg-white hover:bg-neutral-100 text-neutral-900 font-medium py-3 rounded-xl flex items-center justify-center gap-2.5 transition text-sm mb-6 disabled:opacity-50">
-          <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
-            <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
-            <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
-            <path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
-            <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
-          </svg>
-          Continue with Google
-        </button>
-
-        {/* Divider */}
-        <div className="relative flex items-center justify-center mb-6">
-          <div className="w-full border-t border-neutral-800/80" />
-          <span className="bg-[#121215] px-3 text-[11px] text-neutral-500 font-medium absolute">
-            or continue with email
-          </span>
-        </div>
-
-        {/* Error Message */}
-        {error && (
-          <div className="mb-4 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
-            {error}
-          </div>
-        )}
-
-        {/* Form */}
-        <form onSubmit={handleSubmit}>
-
-          {/* Email Input */}
-          <div className="flex flex-col items-start text-left mb-4 w-full">
-            <label className="text-xs font-semibold text-neutral-300 mb-2">Email address</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-              placeholder="you@example.com" required
-              className="w-full bg-[#0B0B0E] border border-neutral-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-[#FF2D55] transition" />
-          </div>
-
-          {/* Password Input */}
-          <div className="w-full mb-4">
-            <div className="flex justify-between items-center w-full mb-2">
-              <label className="text-xs font-semibold text-neutral-300">Password</label>
-              {!isSignUp && (
-                <span className="text-xs font-medium text-[#FF2D55] hover:underline cursor-pointer">Forgot password?</span>
-              )}
+        {/* ─── RIGHT: FORM ─── */}
+        <div className="flex-1 min-w-0 p-7 lg:p-9 overflow-y-auto">
+          {success ? (
+            /* ─── SUCCESS STATE ─── */
+            <div className="h-full min-h-[380px] flex flex-col items-center justify-center text-center gap-4 fx-mode-swap">
+              <div className="fx-success-pop w-16 h-16 rounded-full bg-[#FF2D55]/15 flex items-center justify-center">
+                <Check size={32} className="text-[#FF2D55]" />
+              </div>
+              <h2 className="text-xl font-bold text-white">Welcome back!</h2>
+              <p className="text-xs text-neutral-400">Taking you to your dashboard…</p>
             </div>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-              placeholder="Enter your password" required minLength={6}
-              className="w-full bg-[#0B0B0E] border border-neutral-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-[#FF2D55] transition" />
-          </div>
-
-          {/* Checkbox Row */}
-          {!isSignUp && (
-            <div className="flex items-center gap-2.5 mb-6 text-left">
-              <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)}
-                className="h-4 w-4 rounded border-neutral-700 bg-neutral-900 accent-[#FF2D55] cursor-pointer" />
-              <label className="text-xs text-neutral-400 select-none cursor-pointer" onClick={() => setRemember(!remember)}>
-                Remember me for 30 days
-              </label>
-            </div>
-          )}
-
-          {/* Sign In / Sign Up Button */}
-          <button type="submit" disabled={loading}
-            className="w-full bg-[#FF2D55] hover:bg-rose-600 text-white font-semibold py-3 rounded-xl transition text-sm shadow-md shadow-rose-950/20 disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ marginBottom: isSignUp ? '1.5rem' : '0' }}>
-            {loading ? 'Please wait...' : isSignUp ? 'Create Account' : 'Sign In'}
-          </button>
-
-        </form>
-
-        {/* Bottom Footer Link */}
-        <p className="text-center text-xs text-neutral-400 mt-6">
-          {isSignUp ? (
-            <>Already have an account?{' '}
-              <span onClick={() => { setIsSignUp(false); setError('') }}
-                className="text-[#FF2D55] font-semibold hover:underline cursor-pointer">Sign in</span></>
           ) : (
-            <>Don't have an account?{' '}
-              <span onClick={() => { setIsSignUp(true); setError('') }}
-                className="text-[#FF2D55] font-semibold hover:underline cursor-pointer">Create one free</span></>
+            <>
+              {/* Header Row */}
+              <div className="flex items-center justify-between mb-7">
+                <div className="flex items-center gap-2.5 md:hidden">
+                  <div className="bg-[#FF2D55] h-8 w-8 rounded-lg flex items-center justify-center text-white">
+                    <Sparkles size={15} />
+                  </div>
+                  <span className="text-white text-base font-bold">EventSphere</span>
+                </div>
+                <button onClick={handleClose} aria-label="Close"
+                  className="ml-auto h-8 w-8 rounded-full bg-neutral-800/70 hover:bg-neutral-800 hover:rotate-90 text-neutral-400 hover:text-white flex items-center justify-center transition-all duration-300">
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Title & Subtitle */}
+              <div className="fx-mode-swap flex flex-col items-start text-left mb-6">
+                <h2 className="text-2xl font-bold text-white tracking-tight mb-1">Welcome back</h2>
+                <p className="text-xs text-neutral-400">Sign in to manage your events and team.</p>
+              </div>
+
+              {/* Internal access note */}
+              <div className="mb-6 px-3 py-2.5 rounded-lg bg-white/[0.04] border border-white/10 text-neutral-400 text-[11px] leading-relaxed flex items-start gap-2.5">
+                <ShieldCheck size={15} className="text-[#FF2D55] shrink-0 mt-0.5" />
+                <span>
+                  Internal portal — access is limited to EventSphere staff accounts
+                  <br />with assigned roles (Admin, Manager, Finance, Staff).
+                </span>
+              </div>
+
+              {/* Error Message */}
+              {error && (
+                <div className="mb-4 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs fx-mode-swap">
+                  {error}
+                </div>
+              )}
+
+              {/* Form */}
+              <form onSubmit={handleSubmit}>
+                <div className="fx-mode-swap">
+
+                  {/* Email Input */}
+                  <div className="flex flex-col items-start text-left mb-4 w-full">
+                    <label className="text-xs font-semibold text-neutral-300 mb-2">Email address</label>
+                    <input ref={emailRef} type="email" value={email} onChange={e => setEmail(e.target.value)}
+                      placeholder="you@eventsphere.ph" required
+                      className="w-full bg-[#0B0B0E] border border-neutral-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-[#FF2D55] focus:shadow-[0_0_0_3px_rgba(255,45,85,0.12)] transition" />
+                  </div>
+
+                  {/* Password Input */}
+                  <div className="w-full">
+                    <div className="flex justify-between items-center w-full mb-2">
+                      <label className="text-xs font-semibold text-neutral-300">Password</label>
+                    </div>
+                    <div className="relative">
+                      <input type={showPassword ? 'text' : 'password'} value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        placeholder="Enter your password" required
+                        className="w-full bg-[#0B0B0E] border border-neutral-800 rounded-xl px-4 py-3 pr-11 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-[#FF2D55] focus:shadow-[0_0_0_3px_rgba(255,45,85,0.12)] transition" />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} aria-label="Toggle password"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white transition-colors">
+                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Submit Button */}
+                <button type="submit" disabled={loading}
+                  className="w-full bg-[#FF2D55] hover:bg-rose-600 hover:shadow-lg hover:shadow-rose-500/25 hover:-translate-y-0.5 text-white font-semibold py-3 rounded-xl transition-all text-sm shadow-md shadow-rose-950/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0 disabled:hover:shadow-md mt-8">
+                  {loading
+                    ? <span className="flex items-center justify-center gap-2">
+                        <Loader2 size={15} className="animate-spin" /> Signing in...
+                      </span>
+                    : 'Sign In'}
+                </button>
+              </form>
+
+              <p className="text-center text-xs text-neutral-500 mt-6 flex items-center justify-center gap-1.5">
+                <BarChart3 size={13} /> Secure, role-based access
+              </p>
+            </>
           )}
-        </p>
+        </div>
 
       </div>
     </div>

@@ -8,7 +8,7 @@ function WeekEvent({ event, onSelect }) {
   return (
     <button onClick={() => onSelect(event)}
       className={`w-full text-left rounded-lg border-l-2 ${meta.left} bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 p-2 transition-colors`}>
-      <p className={`text-[11px] font-bold ${meta.dot.replace('bg-', 'text-')}`}>{timeRange(event.StartTime, event.EndTime)}</p>
+      <p className={`text-[11px] font-bold truncate ${meta.dot.replace('bg-', 'text-')}`}>{timeRange(event.StartTime, event.EndTime)}</p>
       <p className="text-xs font-semibold text-gray-900 dark:text-white truncate mt-0.5">{event.Name}</p>
       <p className="text-[10px] text-gray-400 dark:text-[#6B7280] truncate">{event.ClientName}</p>
     </button>

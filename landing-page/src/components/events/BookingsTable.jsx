@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
 import {
-  Search, Plus, List, ChevronDown, ChevronLeft, ChevronRight, CalendarDays,
+  Search, Plus, List, LayoutGrid, ChevronDown, ChevronLeft, ChevronRight, CalendarDays,
+  MapPin, Users, Clock,
 } from 'lucide-react'
 import { EVENT_STATUS_TONES } from './BookedEventCard'
+import '../../pages/landingFx.css'
 
 const PAGE_SIZE = 10
 
@@ -18,11 +20,11 @@ function statusBadge(status) {
   )
 }
 
-export default function BookingsTable({ events, onSelect }) {
+export default function BookingsTable({ events, onSelect, onBookNew }) {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('All Events')
   const [page, setPage] = useState(1)
-  const [selected, setSelected] = useState(() => new Set())
+  const [view, setView] = useState('list')
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -47,26 +49,6 @@ export default function BookingsTable({ events, onSelect }) {
   const from = total === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1
   const to = Math.min(safePage * PAGE_SIZE, total)
 
-  const allSelected = rows.length > 0 && rows.every(r => selected.has(r.Id))
-
-  function toggleAll() {
-    setSelected(prev => {
-      const next = new Set(prev)
-      if (allSelected) rows.forEach(r => next.delete(r.Id))
-      else rows.forEach(r => next.add(r.Id))
-      return next
-    })
-  }
-
-  function toggleOne(id) {
-    setSelected(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
   return (
     <section className="flex flex-col h-full rounded-2xl border border-gray-200 dark:border-[#2A2A36] bg-white dark:bg-[#121217]">
       <div className="p-5 flex flex-col md:flex-row md:items-center gap-3 border-b border-gray-200 dark:border-[#2A2A36] shrink-0">
@@ -80,10 +62,17 @@ export default function BookingsTable({ events, onSelect }) {
           />
         </div>
 
-        <div className="flex items-center gap-2.5 ml-auto">
-          <button className="h-10 flex items-center gap-2 rounded-xl bg-gray-100 dark:bg-[#181820] px-3.5 text-sm font-medium text-gray-600 dark:text-[#9CA3AF] transition-colors">
-            <List size={16} /> List View <ChevronDown size={14} />
-          </button>
+        <div className="flex flex-wrap items-center gap-2.5 md:ml-auto">
+          <div className="flex h-10 rounded-xl bg-gray-100 dark:bg-[#181820] p-1">
+            {[['list', List, 'List'], ['grid', LayoutGrid, 'Grid']].map(([key, Icon, label]) => (
+              <button key={key} onClick={() => setView(key)} title={`${label} view`}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 text-sm font-medium transition-all ${
+                  view === key ? 'bg-white dark:bg-[#22222C] text-[#FF2B66] shadow-sm' : 'text-gray-500 dark:text-[#9CA3AF] hover:text-gray-900 dark:hover:text-white'
+                }`}>
+                <Icon size={15} /> {label}
+              </button>
+            ))}
+          </div>
 
           <div className="relative h-10">
             <select
@@ -97,20 +86,62 @@ export default function BookingsTable({ events, onSelect }) {
             <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
           </div>
 
-          <button className="inline-flex items-center gap-1.5 bg-[#FF2B66] hover:bg-[#E0245A] text-white text-sm font-semibold rounded-xl px-4 py-2.5 transition-colors">
+          <button onClick={onBookNew}
+            className="inline-flex items-center gap-1.5 bg-[#FF2B66] hover:bg-[#E0245A] text-white text-sm font-semibold rounded-xl px-4 py-2.5 transition-all hover:shadow-lg hover:shadow-rose-500/20 active:scale-95">
             <Plus size={16} /> Book Event
           </button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        <table className="w-full text-sm">
+      {view === 'grid' ? (
+        <div className="flex-1 overflow-y-auto p-4">
+          {rows.length === 0 ? (
+            <p className="py-10 text-center text-sm text-gray-500 dark:text-[#9CA3AF]">No events found.</p>
+          ) : (
+            <div key={`${filter}-${safePage}-${query}`} className="fx-mode-swap grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {rows.map(event => {
+                const clickable = event.Status !== 'Cancelled'
+                return (
+                  <button key={event.Id} disabled={!clickable}
+                    onClick={() => clickable && onSelect && onSelect(event)}
+                    className={`text-left rounded-2xl border border-gray-200 dark:border-[#2A2A36] bg-gray-50 dark:bg-[#181820] p-4 transition-all ${
+                      clickable ? 'hover:border-[#FF2B66]/40 hover:-translate-y-0.5 hover:shadow-md cursor-pointer' : 'opacity-60'
+                    }`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="h-9 w-9 shrink-0 rounded-lg bg-[#FF2B66]/10 text-[#FF2B66] flex items-center justify-center">
+                          <CalendarDays size={15} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-gray-900 dark:text-white text-sm">{event.Name}</p>
+                          <p className="truncate text-xs text-gray-500 dark:text-[#9CA3AF]">{event.ClientName || '—'}</p>
+                        </div>
+                      </div>
+                      {statusBadge(event.Status)}
+                    </div>
+                    <div className="mt-3 space-y-1.5 text-xs text-gray-500 dark:text-[#9CA3AF]">
+                      <p className="flex items-center gap-1.5 truncate">
+                        <Clock size={12} className="shrink-0" />
+                        {event.StartDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · {event.StartTime}
+                      </p>
+                      <p className="flex items-center gap-1.5 truncate">
+                        <MapPin size={12} className="shrink-0" /> {event.VenueName || '—'}
+                      </p>
+                      <p className="flex items-center gap-1.5">
+                        <Users size={12} className="shrink-0" /> {event.Guests ? `${event.Guests.toLocaleString()} guests` : '—'}
+                      </p>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      ) : (
+      <div className="flex-1 overflow-auto">
+        <table className="w-full min-w-[720px] text-sm">
         <thead>
           <tr className="border-b border-gray-200 dark:border-[#2A2A36]">
-            <th className="px-3 py-3 w-10">
-              <input type="checkbox" checked={allSelected} onChange={toggleAll}
-                className="h-4 w-4 rounded accent-[#FF2B66] cursor-pointer" />
-            </th>
             <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">Event</th>
             <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">Client</th>
             <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">Schedule</th>
@@ -127,13 +158,8 @@ export default function BookingsTable({ events, onSelect }) {
               <tr
                 key={event.Id}
                 onClick={() => clickable && onSelect && onSelect(event)}
-                className={`transition-colors ${clickable ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.02]' : 'opacity-60'} ${selected.has(event.Id) ? 'bg-[#FF2B66]/5' : ''}`}
+                className={`transition-colors ${clickable ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.02]' : 'opacity-60'}`}
               >
-                <td className="px-3 py-4 w-10">
-                  <input type="checkbox" checked={selected.has(event.Id)} onChange={() => toggleOne(event.Id)}
-                    onClick={e => e.stopPropagation()}
-                    className="h-4 w-4 rounded accent-[#FF2B66] cursor-pointer" />
-                </td>
                 <td className="px-3 py-4 max-w-[260px]">
                   <div className="flex items-center gap-2.5">
                     <div className="h-8 w-8 shrink-0 rounded-lg bg-[#FF2B66]/10 text-[#FF2B66] flex items-center justify-center">
@@ -160,12 +186,13 @@ export default function BookingsTable({ events, onSelect }) {
           })}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={7} className="px-4 py-10 text-center text-sm text-gray-500 dark:text-[#9CA3AF]">No events found.</td>
+              <td colSpan={6} className="px-4 py-10 text-center text-sm text-gray-500 dark:text-[#9CA3AF]">No events found.</td>
             </tr>
           )}
         </tbody>
       </table>
       </div>
+      )}
 
       <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-gray-200 dark:border-[#2A2A36] shrink-0">
         <p className="text-sm text-gray-500 dark:text-[#9CA3AF]">

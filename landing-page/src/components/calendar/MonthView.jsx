@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { monthCells, sameDay, dateKey, statusMeta, formatTime12 } from './calendarUtils'
+import { monthCells, sameDay, dateKey, statusMeta, formatTime12, isPhilippineHoliday, isPastDate } from './calendarUtils'
 
 const DAY_LETTERS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 
@@ -18,12 +18,16 @@ function DayCell({ date, eventsList, isToday, onSelect, onMore }) {
   const M = 3
   const visible = eventsList.slice(0, 2)
   const more = eventsList.length - visible.length
+  const isHoliday = isPhilippineHoliday(date)
+  const isPast = isPastDate(date)
 
   return (
-    <div className={`min-h-0 overflow-hidden bg-white dark:bg-[#121217] p-1.5 flex flex-col ${isToday ? 'bg-[#FF2B66]/5 dark:bg-[#FF2B66]/5' : ''}`}>
+    <div className={`min-h-0 overflow-hidden bg-white dark:bg-[#121217] p-1.5 flex flex-col ${isToday ? 'bg-[#FF2B66]/5 dark:bg-[#FF2B66]/5' : ''} ${isPast ? 'opacity-45 grayscale-[0.5]' : ''}`}>
       <div className="flex items-center justify-between mb-1">
         <span className={`h-6 w-6 flex items-center justify-center rounded-full text-xs font-bold ${
-          isToday ? 'bg-[#FF2B66] text-white' : 'text-gray-600 dark:text-gray-300'
+          isToday ? 'bg-[#FF2B66] text-white'
+          : isHoliday ? 'text-[#FF2B66] dark:text-[#FF5C8A]'
+          : 'text-gray-600 dark:text-gray-300'
         }`}>
           {date.getDate()}
         </span>

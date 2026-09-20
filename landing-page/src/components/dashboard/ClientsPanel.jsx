@@ -1,17 +1,19 @@
 import { useMemo, useState } from 'react'
-import { Search, Plus, SlidersHorizontal, Calendar, ChevronRight } from 'lucide-react'
+import { Search, Plus, Calendar, ChevronRight, ChevronDown } from 'lucide-react'
 import { formatCurrency } from './format'
 
 const STATUS_ORDER = { New: 0, Booked: 1, Completed: 2, Cancelled: 3 }
 const TABS = ['All Clients', 'New', 'Booked', 'Completed', 'Cancelled']
+const TYPES = ['All Types', 'Individual', 'Company']
 
 function initials(name) {
   return String(name || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
 }
 
-export default function ClientsPanel({ clients, onSelect }) {
+export default function ClientsPanel({ clients, onSelect, onAddClient }) {
   const [tab, setTab] = useState('All Clients')
   const [query, setQuery] = useState('')
+  const [type, setType] = useState('All Types')
 
   const counts = useMemo(() => {
     const c = { 'All Clients': clients.length, New: 0, Booked: 0, Completed: 0, Cancelled: 0 }
@@ -24,6 +26,7 @@ export default function ClientsPanel({ clients, onSelect }) {
     return clients
       .filter(c => {
         if (tab !== 'All Clients' && c.Status !== tab) return false
+        if (type !== 'All Types' && c.ClientType !== type) return false
         if (!q) return true
         return [c.ContactPerson, c.CompanyName, c.Email].some(v => String(v || '').toLowerCase().includes(q))
       })
@@ -32,7 +35,7 @@ export default function ClientsPanel({ clients, onSelect }) {
         if (d !== 0) return d
         return String(a.ContactPerson || '').localeCompare(String(b.ContactPerson || ''))
       })
-  }, [clients, tab, query])
+  }, [clients, tab, query, type])
 
   return (
     <section>
@@ -62,10 +65,19 @@ export default function ClientsPanel({ clients, onSelect }) {
             className="w-full bg-transparent text-sm outline-none placeholder:text-gray-400 dark:placeholder:text-[#6B7280] text-gray-900 dark:text-white"
           />
         </div>
-        <button className="h-10 w-10 rounded-xl bg-white dark:bg-[#121217] border border-gray-200 dark:border-[#2A2A36] flex items-center justify-center text-gray-500 dark:text-[#9CA3AF] hover:text-[#FF2B66] transition-colors" title="Filter">
-          <SlidersHorizontal size={16} />
-        </button>
-        <button className="inline-flex items-center gap-1.5 bg-[#FF2B66] hover:bg-[#E0245A] text-white text-sm font-semibold rounded-xl px-4 py-2.5 transition-colors">
+
+        <div className="relative h-10">
+          <select
+            value={type}
+            onChange={e => setType(e.target.value)}
+            className="h-10 appearance-none rounded-xl bg-white dark:bg-[#121217] border border-gray-200 dark:border-[#2A2A36] pl-3.5 pr-9 text-sm font-medium text-gray-600 dark:text-[#9CA3AF] focus:outline-none cursor-pointer">
+            {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        </div>
+
+        <button onClick={onAddClient}
+          className="inline-flex items-center gap-1.5 bg-[#FF2B66] hover:bg-[#E0245A] text-white text-sm font-semibold rounded-xl px-4 py-2.5 transition-colors">
           <Plus size={16} /> Add Client
         </button>
       </div>
@@ -96,6 +108,11 @@ export default function ClientsPanel({ clients, onSelect }) {
                   <Calendar size={13} className="text-[#FF2B66]" /> {c.Events} Event{c.Events === 1 ? '' : 's'}
                 </span>
                 <span>Budget {formatCurrency(c.Budget)}</span>
+                {c.ClientType && (
+                  <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-[#6B7280]">
+                    {c.ClientType}
+                  </span>
+                )}
               </div>
             </button>
           ))}

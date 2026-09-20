@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import AppLayout from './AppLayout'
 import CalendarToolbar from '../components/calendar/CalendarToolbar'
 import MonthView from '../components/calendar/MonthView'
@@ -6,12 +7,41 @@ import YearView from '../components/calendar/YearView'
 import EventDetailPanel from '../components/calendar/EventDetailPanel'
 import NewEventModal from '../components/calendar/NewEventModal'
 import DayEventsModal from '../components/calendar/DayEventsModal'
-import { dashboardData } from '../components/dashboard/sampleData'
+import { useData } from '../api/data'
+import { api } from '../api/client'
+
+function isoDate(value) {
+  const d = new Date(value)
+  const p = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
+function toEventPayload(e) {
+  return {
+    name: e.Name,
+    eventType: e.EventType || 'Corporate',
+    status: e.Status || 'New',
+    startDate: isoDate(e.StartDate),
+    endDate: isoDate(e.EndDate || e.StartDate),
+    clientId: e.ClientId ?? null,
+    venueId: e.VenueId ?? null,
+    description: e.SpecialRequirements || e.Description || '',
+  }
+}
 
 export default function EventCalendar({ user }) {
+  const { data, reload } = useData()
+  const [searchParams] = useSearchParams()
   const [view, setView] = useState('month')
-  const [viewDate, setViewDate] = useState(() => new Date())
-  const [events, setEvents] = useState(dashboardData.events)
+  const [viewDate, setViewDate] = useState(() => {
+    const param = searchParams.get('date')
+    if (param) {
+      const parsed = new Date(param)
+      if (!isNaN(parsed.getTime())) return parsed
+    }
+    return new Date()
+  })
+  const [drafts, setDrafts] = useState([])
   const [query, setQuery] = useState('')
   const [filters, setFilters] = useState({ statuses: [], types: [], venueId: null, clientId: null })
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -19,12 +49,14 @@ export default function EventCalendar({ user }) {
   const [dayEvents, setDayEvents] = useState(null)
   const [modal, setModal] = useState({ open: false, edit: null })
 
-  const clientById = useMemo(() => new Map(dashboardData.clients.map(c => [c.Id, c])), [])
-  const venueById = useMemo(() => new Map(dashboardData.venues.map(v => [v.Id, v])), [])
+  const clientById = useMemo(() => new Map(data.clients.map(c => [c.Id, c])), [data.clients])
+  const venueById = useMemo(() => new Map(data.venues.map(v => [v.Id, v])), [data.venues])
+
+  const allEvents = useMemo(() => [...data.events, ...drafts], [data.events, drafts])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return events.filter(e => {
+    return allEvents.filter(e => {
       if (filters.statuses.length && !filters.statuses.includes(e.Status)) return false
       if (filters.types.length && !filters.types.includes(e.EventType)) return false
       if (filters.venueId && e.VenueId !== filters.venueId) return false
@@ -37,7 +69,7 @@ export default function EventCalendar({ user }) {
       }
       return true
     })
-  }, [events, query, filters, clientById, venueById])
+  }, [allEvents, query, filters, clientById, venueById])
 
   const enriched = useMemo(() =>
     filtered.map(e => ({
@@ -61,24 +93,46 @@ export default function EventCalendar({ user }) {
     setViewDate(d)
   }
 
-  function goToday() {
-    setViewDate(new Date())
+  function removeDraft(id) {
+    setDrafts(prev => prev.filter(d => d.Id !== id))
+  }
+
+  function persistCreate(draft) {
+    api.post('/api/events', toEventPayload(draft))
+      .then(() => { removeDraft(draft.Id); return reload() })
+      .catch(err => { console.error('Create event failed:', err); alert(err.message) })
   }
 
   function handleCreate(data) {
-    const id = Math.max(0, ...events.map(e => e.Id)) + 1
-    setEvents(prev => [...prev, { ...data, Id: id }])
+    const draft = { ...data, Id: `draft-${Date.now()}` }
+    setDrafts(prev => [...prev, draft])
     setModal({ open: false, edit: null })
+    persistCreate(draft)
   }
 
   function handleUpdate(data) {
-    setEvents(prev => prev.map(e => (e.Id === data.Id ? { ...e, ...data } : e)))
     setSelectedId(null)
     setModal({ open: false, edit: null })
+    if (typeof data.Id === 'string') {
+      /* event may not be persisted yet — ship it as a fresh create */
+      persistCreate({ ...data, Status: 'New' })
+      return
+    }
+    api.put(`/api/events/${data.Id}`, toEventPayload(data))
+      .then(reload)
+      .catch(err => { console.error('Update event failed:', err); alert(err.message) })
   }
 
   function handleCancelEvent(event) {
-    setEvents(prev => prev.map(e => (e.Id === event.Id ? { ...e, Status: 'Cancelled' } : e)))
+    if (typeof event.Id === 'string') {
+      setDrafts(prev => prev.filter(d => d.Id !== event.Id))
+      setSelectedId(null)
+      return
+    }
+    api.put(`/api/events/${event.Id}`, toEventPayload({ ...event, Status: 'Cancelled' }))
+      .then(reload)
+      .catch(err => { console.error('Cancel event failed:', err); alert(err.message) })
+    setSelectedId(null)
   }
 
   function handleMore(date, list) {
@@ -90,17 +144,16 @@ export default function EventCalendar({ user }) {
   }
 
   return (
-    <AppLayout user={user} badgeCount={dashboardData.leads.length} searchValue={query} onSearchChange={setQuery}>
+    <AppLayout user={user} badgeCount={data.leads.length} searchValue={query} onSearchChange={setQuery}>
       <div className="h-full min-h-0 flex flex-col gap-4">
         <CalendarToolbar
           view={view}
           onViewChange={setView}
           title={title}
           onNavigate={navigate}
-          onToday={goToday}
           onNewEvent={() => setModal({ open: true, edit: null })}
-          venues={dashboardData.venues}
-          clients={dashboardData.clients}
+          venues={data.venues}
+          clients={data.clients}
           filters={filters}
           onFilterChange={setFilters}
           filterOpen={filtersOpen}
@@ -112,7 +165,7 @@ export default function EventCalendar({ user }) {
             <MonthView viewDate={viewDate} events={enriched} onSelect={handleSelect} onMore={handleMore} />
           )}
           {view === 'year' && (
-            <YearView viewDate={viewDate} events={events} onJumpDay={d => { setView('month'); setViewDate(d) }} />
+            <YearView viewDate={viewDate} events={allEvents} onJumpDay={d => { setView('month'); setViewDate(d) }} />
           )}
         </div>
 
@@ -147,9 +200,9 @@ export default function EventCalendar({ user }) {
             onClose={() => setModal({ open: false, edit: null })}
             onCreate={handleCreate}
             onUpdate={handleUpdate}
-            events={events}
-            clients={dashboardData.clients}
-            venues={dashboardData.venues}
+            events={allEvents}
+            clients={data.clients}
+            venues={data.venues}
           />
         )}
       </div>

@@ -12,7 +12,7 @@ function initials(name) {
     .toUpperCase()
 }
 
-export default function AvatarSelect({ options, value, onSelect, placeholder, variant = 'person' }) {
+export default function AvatarSelect({ options, value, onSelect, placeholder, variant = 'person', disabledOptions }) {
   const [open, setOpen] = useState(false)
   const selected = options.find(o => o.id === value) || null
   const EmptyIcon = variant === 'venue' ? Building2 : User
@@ -59,18 +59,24 @@ export default function AvatarSelect({ options, value, onSelect, placeholder, va
           <ul className="blend-scrollbar absolute z-50 mt-1.5 w-full max-h-56 overflow-y-auto rounded-xl border border-gray-200 dark:border-[#2A2A36] bg-white dark:bg-[#121217] p-1 shadow-xl">
             {options.map(o => {
               const isSel = o.id === value
+              const blocked = disabledOptions ? disabledOptions[o.id] : null
               return (
                 <li key={o.id}>
                   <button
                     type="button"
+                    disabled={!!blocked}
                     onClick={() => {
+                      if (blocked) return
                       onSelect(isSel ? null : o.id)
                       setOpen(false)
                     }}
+                    title={blocked || undefined}
                     className={`w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors ${
                       isSel
                         ? 'bg-[#FF2B66]/10 text-[#FF2B66]'
-                        : 'text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/5'
+                        : blocked
+                          ? 'opacity-50 cursor-not-allowed text-gray-400 dark:text-[#6B7280]'
+                          : 'text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/5'
                     }`}
                   >
                     {variant === 'venue' ? (
@@ -91,6 +97,9 @@ export default function AvatarSelect({ options, value, onSelect, placeholder, va
                         <span className="block text-[11px] text-gray-400 dark:text-[#6B7280]">{o.sub}</span>
                       )}
                     </span>
+                    {blocked && (
+                      <span className="shrink-0 text-[10px] font-bold text-amber-500 dark:text-amber-400">{blocked}</span>
+                    )}
                   </button>
                 </li>
               )

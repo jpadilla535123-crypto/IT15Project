@@ -1,28 +1,52 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
-import { onAuthStateChanged } from 'firebase/auth'
-import { auth } from './firebase'
+import { Loader2 } from 'lucide-react'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { canAccess } from './api/permissions'
+import { DataProvider } from './api/data'
+import { SystemStateProvider } from './components/dashboard/SystemState'
+import ErrorBoundary from './components/common/ErrorBoundary'
 import Landing from './pages/Landing'
+import Services from './pages/Services'
+import Venues from './pages/Venues'
+import ContactUs from './pages/ContactUs'
 import Dashboard from './pages/Dashboard'
 import Leads from './pages/Leads'
 import Clients from './pages/Clients'
 import EventCalendar from './pages/EventCalendar'
 import EventManagement from './pages/EventManagement'
-import { Loader2 } from 'lucide-react'
+import EmployeeAssignments from './pages/EmployeeAssignments'
+import VenueManagement from './pages/VenueManagement'
+import SupplierManagement from './pages/SupplierManagement'
+import EmployeeManagement from './pages/EmployeeManagement'
+import BudgetManagement from './pages/BudgetManagement'
+import Billing from './pages/Billing'
+import PaymentReview from './pages/PaymentReview'
+import Reports from './pages/Reports'
+
+function GuardedRoute({ path, children }) {
+  const { user } = useAuth()
+
+  if (!user) return <Navigate to="/" replace />
+
+  if (!canAccess(user.role, path)) {
+    return <Navigate to="/dashboard" replace />
+  }
+
+  return children
+}
 
 export default function App() {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
+  return (
+    <AuthProvider>
+      <AppRoutes />
+    </AuthProvider>
+  )
+}
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, u => {
-      setUser(u)
-      setLoading(false)
-    })
-    return unsubscribe
-  }, [])
+function AppRoutes() {
+  const { user } = useAuth()
 
-  if (loading) {
+  if (user === undefined) {
     return (
       <div className="min-h-screen bg-[#0B0B0E] flex items-center justify-center">
         <Loader2 size={32} className="animate-spin text-[#FF2B66]" />
@@ -31,29 +55,31 @@ export default function App() {
   }
 
   return (
-    <Routes>
-      <Route path="/" element={<Landing user={user} />} />
-      <Route
-        path="/dashboard"
-        element={user ? <Dashboard user={user} /> : <Navigate to="/" replace />}
-      />
-      <Route
-        path="/leads"
-        element={user ? <Leads user={user} /> : <Navigate to="/" replace />}
-      />
-      <Route
-        path="/clients"
-        element={user ? <Clients user={user} /> : <Navigate to="/" replace />}
-      />
-      <Route
-        path="/calendar"
-        element={user ? <EventCalendar user={user} /> : <Navigate to="/" replace />}
-      />
-      <Route
-        path="/events"
-        element={user ? <EventManagement user={user} /> : <Navigate to="/" replace />}
-      />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <DataProvider>
+      <SystemStateProvider>
+        <ErrorBoundary>
+          <Routes>
+            <Route path="/" element={<Landing user={user} />} />
+            <Route path="/services" element={<Services />} />
+            <Route path="/venues" element={<Venues user={user} />} />
+            <Route path="/contact-us" element={<ContactUs user={user} />} />
+            <Route path="/dashboard" element={<GuardedRoute path="/dashboard"><Dashboard user={user} /></GuardedRoute>} />
+            <Route path="/leads" element={<GuardedRoute path="/leads"><Leads user={user} /></GuardedRoute>} />
+            <Route path="/clients" element={<GuardedRoute path="/clients"><Clients user={user} /></GuardedRoute>} />
+            <Route path="/calendar" element={<GuardedRoute path="/calendar"><EventCalendar user={user} /></GuardedRoute>} />
+            <Route path="/events" element={<GuardedRoute path="/events"><EventManagement user={user} /></GuardedRoute>} />
+            <Route path="/assignments" element={<GuardedRoute path="/assignments"><EmployeeAssignments user={user} /></GuardedRoute>} />
+            <Route path="/venues-mgmt" element={<GuardedRoute path="/venues-mgmt"><VenueManagement user={user} /></GuardedRoute>} />
+            <Route path="/suppliers-mgmt" element={<GuardedRoute path="/suppliers-mgmt"><SupplierManagement user={user} /></GuardedRoute>} />
+            <Route path="/employees-mgmt" element={<GuardedRoute path="/employees-mgmt"><EmployeeManagement user={user} /></GuardedRoute>} />
+            <Route path="/budget" element={<GuardedRoute path="/budget"><BudgetManagement user={user} /></GuardedRoute>} />
+            <Route path="/billing" element={<GuardedRoute path="/billing"><Billing user={user} /></GuardedRoute>} />
+            <Route path="/payment-review" element={<GuardedRoute path="/payment-review"><PaymentReview user={user} /></GuardedRoute>} />
+            <Route path="/reports" element={<GuardedRoute path="/reports"><Reports user={user} /></GuardedRoute>} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </ErrorBoundary>
+      </SystemStateProvider>
+    </DataProvider>
   )
 }

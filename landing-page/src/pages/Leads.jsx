@@ -1,10 +1,11 @@
 import AppLayout from './AppLayout'
 import LeadsTable from '../components/dashboard/LeadsTable'
-import { dashboardData } from '../components/dashboard/sampleData'
+import { useData } from '../api/data'
 
 export default function Leads({ user }) {
+  const { data } = useData()
   return (
-    <AppLayout user={user} badgeCount={dashboardData.leads.length}>
+    <AppLayout user={user} badgeCount={data.leads.length}>
       <div>
         <h1 className="text-2xl font-extrabold tracking-tight">Leads</h1>
         <p className="text-sm text-gray-500 dark:text-[#9CA3AF] mt-1">
@@ -12,7 +13,7 @@ export default function Leads({ user }) {
         </p>
       </div>
 
-      <LeadsTable data={dashboardData.leads} />
+      <LeadsTable data={data.leads} />
     </AppLayout>
   )
 }

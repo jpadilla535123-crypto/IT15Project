@@ -21,5 +21,8 @@ public class Payment : BaseEntity
     [DataType(DataType.MultilineText)]
     public string? Notes { get; set; }
 
+    [Display(Name = "Evidence")]
+    public string? EvidencePath { get; set; }
+
     public Invoice? Invoice { get; set; }
 }

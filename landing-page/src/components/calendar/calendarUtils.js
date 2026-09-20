@@ -106,3 +106,26 @@ export function isTimeOverlap(aStart, aEnd, bStart, bEnd) {
   const bE = toMinutes(bEnd || bStart)
   return toMinutes(aStart) < bE && toMinutes(bStart) < aE
 }
+
+/* Fixed-date Philippine public holidays. Movable holidays (Holy Week,
+   EDSA, etc.) vary by decree, so only legislated fixed dates are marked. */
+export function isPhilippineHoliday(value) {
+  const d = toDate(value)
+  const m = d.getMonth() + 1
+  const day = d.getDate()
+  return (
+    (m === 1 && day === 1) ||    // New Year's Day
+    (m === 4 && day === 9) ||    // Araw ng Kagitingan
+    (m === 5 && day === 1) ||    // Labor Day
+    (m === 6 && day === 12) ||   // Independence Day
+    (m === 8 && day === 21) ||   // Ninoy Aquino Day
+    (m === 11 && day === 30) ||  // Bonifacio Day
+    (m === 12 && day === 25) ||  // Christmas Day
+    (m === 12 && day === 30) ||  // Rizal Day
+    (m === 12 && day === 31)     // Last Day of the Year
+  )
+}
+
+export function isPastDate(value) {
+  return startOfDay(value).getTime() < startOfDay(new Date()).getTime()
+}

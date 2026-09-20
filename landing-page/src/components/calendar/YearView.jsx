@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { dateKey, sameDay } from './calendarUtils'
+import { dateKey, sameDay, isPhilippineHoliday, isPastDate } from './calendarUtils'
 
 const DAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
@@ -23,11 +23,16 @@ function MiniMonth({ year, month, groups, today, onJumpDay }) {
         {cells.map((d, i) => {
           if (!d) return <span key={`b${i}`} />
           const isToday = sameDay(d, today)
+          const isHoliday = isPhilippineHoliday(d)
+          const isPast = isPastDate(d)
           const hasEvent = groups.get(dateKey(d))?.length > 0
           return (
             <button key={i} onClick={() => onJumpDay(d)}
               className={`relative h-7 flex flex-col items-center justify-center rounded-md text-[11px] font-semibold transition-colors ${
-                isToday ? 'bg-[#FF2B66] text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5'
+                isToday ? 'bg-[#FF2B66] text-white'
+                : isHoliday ? 'text-[#FF2B66] dark:text-[#FF5C8A]'
+                : isPast ? 'text-gray-300 dark:text-[#3A3A46]'
+                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5'
               } ${hasEvent && !isToday ? 'hover:bg-emerald-50 dark:hover:bg-emerald-500/10' : ''}`}>
               {d.getDate()}
               {hasEvent && (

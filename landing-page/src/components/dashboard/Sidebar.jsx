@@ -4,17 +4,18 @@ import {
   Sparkles, LayoutDashboard, Mail, Users,
   CalendarDays, CalendarRange, UserCheck,
   Building2, Truck, UserCog,
-  Wallet, Receipt, BarChart3,
+  Wallet, Receipt, BarChart3, ShieldAlert,
   Settings, CircleHelp, Moon, Sun,
 } from 'lucide-react'
+import { ROLE_PERMISSIONS } from '../../api/permissions'
 
 const NAV_SECTIONS = [
   { title: null, items: [{ label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' }] },
   { title: 'Lead Management', items: [{ label: 'Lead Management', icon: Mail, path: '/leads' }, { label: 'Client Management', icon: Users, path: '/clients' }] },
-  { title: 'Operations', items: [{ label: 'Event Management', icon: CalendarDays, path: '/events' }, { label: 'Event Calendar', icon: CalendarRange, path: '/calendar' }, { label: 'Employee Assignments', icon: UserCheck }] },
-  { title: 'Resources', items: [{ label: 'Venue Management', icon: Building2 }, { label: 'Supplier Management', icon: Truck }, { label: 'Employee Management', icon: UserCog }] },
-  { title: 'Finance', items: [{ label: 'Budget Management', icon: Wallet }, { label: 'Billing', icon: Receipt }] },
-  { title: 'Insights', items: [{ label: 'Reports', icon: BarChart3 }] },
+  { title: 'Operations', items: [{ label: 'Event Management', icon: CalendarDays, path: '/events' }, { label: 'Event Calendar', icon: CalendarRange, path: '/calendar' }, { label: 'Employee Assignments', icon: UserCheck, path: '/assignments' }] },
+  { title: 'Resources', items: [{ label: 'Venue Management', icon: Building2, path: '/venues-mgmt' }, { label: 'Supplier Management', icon: Truck, path: '/suppliers-mgmt' }, { label: 'Employee Management', icon: UserCog, path: '/employees-mgmt' }] },
+  { title: 'Finance', items: [{ label: 'Budget Management', icon: Wallet, path: '/budget' }, { label: 'Billing', icon: Receipt, path: '/billing' }, { label: 'Payment Review', icon: ShieldAlert, path: '/payment-review' }] },
+  { title: 'Insights', items: [{ label: 'Reports', icon: BarChart3, path: '/reports' }] },
 ]
 
 const ROUTE_LABELS = {
@@ -23,32 +24,42 @@ const ROUTE_LABELS = {
   '/clients': 'Client Management',
   '/events': 'Event Management',
   '/calendar': 'Event Calendar',
+  '/assignments': 'Employee Assignments',
+  '/venues-mgmt': 'Venue Management',
+  '/suppliers-mgmt': 'Supplier Management',
+  '/employees-mgmt': 'Employee Management',
+  '/budget': 'Budget Management',
+  '/billing': 'Billing',
+  '/payment-review': 'Payment Review',
+  '/reports': 'Reports',
 }
 
 const NAV_CLASS = 'w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] whitespace-nowrap font-medium transition-colors'
 
-export default function Sidebar({ theme, onToggleTheme }) {
+export function SidebarNav({ role, theme, onToggleTheme, onNavigateAfter }) {
   const [activeLocal, setActiveLocal] = useState('Dashboard')
   const navigate = useNavigate()
   const location = useLocation()
   const active = ROUTE_LABELS[location.pathname] || activeLocal
 
+  const allowed = ROLE_PERMISSIONS[role] || []
+  const visibleSections = NAV_SECTIONS
+    .map(section => ({
+      ...section,
+      items: section.items.filter(item => allowed.includes(item.path)),
+    }))
+    .filter(section => section.items.length > 0)
+
   function handleClick(item) {
     if (item.path) navigate(item.path)
     else setActiveLocal(item.label)
+    onNavigateAfter?.()
   }
 
   return (
-    <aside className="hidden lg:flex w-60 shrink-0 flex-col border-r border-gray-200 dark:border-[#2A2A36]/60 bg-white dark:bg-[#0B0B0E]">
-      <div className="h-16 flex items-center gap-2.5 px-6 border-b border-gray-200 dark:border-[#2A2A36]/60">
-        <div className="w-8 h-8 rounded-xl bg-[#FF2B66]/15 flex items-center justify-center">
-          <Sparkles size={16} className="text-[#FF2B66]" />
-        </div>
-        <span className="font-bold text-lg tracking-tight text-gray-900 dark:text-white">EventSphere</span>
-      </div>
-
+    <>
       <nav className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
-        {NAV_SECTIONS.map(section => (
+        {visibleSections.map(section => (
           <div key={section.title || 'top'}>
             {section.title && (
               <p className="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-widest text-gray-400 dark:text-[#6B7280]">
@@ -91,6 +102,20 @@ export default function Sidebar({ theme, onToggleTheme }) {
           </span>
         </button>
       </div>
+    </>
+  )
+}
+
+export default function Sidebar({ role, theme, onToggleTheme }) {
+  return (
+    <aside className="hidden lg:flex w-60 shrink-0 flex-col border-r border-gray-200 dark:border-[#2A2A36]/60 bg-white dark:bg-[#0B0B0E]">
+      <div className="h-16 flex items-center gap-2.5 px-6 border-b border-gray-200 dark:border-[#2A2A36]/60">
+        <div className="w-8 h-8 rounded-xl bg-[#FF2B66]/15 flex items-center justify-center">
+          <Sparkles size={16} className="text-[#FF2B66]" />
+        </div>
+        <span className="font-bold text-lg tracking-tight text-gray-900 dark:text-white">EventSphere</span>
+      </div>
+      <SidebarNav role={role} theme={theme} onToggleTheme={onToggleTheme} />
     </aside>
   )
 }

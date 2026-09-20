@@ -13,7 +13,8 @@ export default function BookingStepper({ currentStep, onStepChange, steps = book
   const cols = { 5: 'grid-cols-5', 6: 'grid-cols-6' }[steps.length] || 'grid-cols-5'
   return (
     <div>
-      <div className={`grid ${cols} gap-2`}>
+      <div className="overflow-x-auto no-scrollbar -mx-1 px-1">
+      <div className={`grid ${cols} gap-2`} style={{ minWidth: steps.length * 64 }}>
         {steps.map((s, i) => {
           const Icon = s.icon
           const isCurrent = i === currentStep
@@ -48,6 +49,7 @@ export default function BookingStepper({ currentStep, onStepChange, steps = book
             </button>
           )
         })}
+      </div>
       </div>
       <div className="mt-2.5 flex gap-2">
         {steps.map((_, i) => (

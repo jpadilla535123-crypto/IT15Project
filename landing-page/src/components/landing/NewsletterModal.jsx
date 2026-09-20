@@ -1,0 +1,83 @@
+import { useState } from 'react'
+import { X, Mail, Check, Loader2 } from 'lucide-react'
+import ModalShell from './ModalShell'
+import { api } from '../../api/client'
+import '../../pages/landingFx.css'
+
+export default function NewsletterModal({ open, email, onClose, onConfirmed }) {
+  const [confirming, setConfirming] = useState(false)
+  const [done, setDone] = useState(false)
+  const [error, setError] = useState('')
+
+  async function confirmSubscribe() {
+    setConfirming(true)
+    setError('')
+    try {
+      await api.post('/api/leads/public', {
+        email,
+        source: 'Newsletter',
+        notes: 'Subscribed via "Stay in the loop" on the landing page',
+      })
+      setDone(true)
+      setTimeout(() => {
+        setDone(false)
+        onConfirmed?.()
+        onClose()
+      }, 1200)
+    } catch (err) {
+      setError(err.message || 'Could not subscribe. Please try again.')
+    } finally {
+      setConfirming(false)
+    }
+  }
+
+  return (
+    <ModalShell open={open} onClose={confirming ? () => {} : onClose}>
+      <div className="p-7 lg:p-9">
+        <div className="flex items-center justify-between mb-6">
+          <div className="w-10 h-10 rounded-xl bg-[#FF2B66]/15 flex items-center justify-center">
+            <Mail size={18} className="text-[#FF2B66]" />
+          </div>
+          <button onClick={onClose} disabled={confirming} aria-label="Close"
+            className="h-8 w-8 rounded-full bg-neutral-800/70 hover:bg-neutral-800 hover:rotate-90 text-neutral-400 hover:text-white flex items-center justify-center transition-all duration-300 disabled:opacity-40">
+            <X size={16} />
+          </button>
+        </div>
+
+        {done ? (
+          <div className="text-center py-8">
+            <div className="w-16 h-16 rounded-full bg-emerald-500/15 flex items-center justify-center mx-auto">
+              <Check size={32} className="text-emerald-400" />
+            </div>
+            <h2 className="text-xl font-bold text-white mt-5">You're subscribed!</h2>
+            <p className="text-sm text-neutral-400 mt-2">We&apos;ll email you about our upcoming events.</p>
+          </div>
+        ) : (
+          <>
+            <h2 className="text-xl font-bold text-white">Confirm subscription</h2>
+            <p className="text-sm text-neutral-400 mt-2 leading-relaxed">
+              We&apos;ll send event announcements, planning tips, and industry news — weekly — to
+            </p>
+            <p className="mt-3 px-4 py-3 rounded-xl bg-white/[0.04] border border-white/10 text-white text-sm font-semibold break-all">
+              {email}
+            </p>
+            <p className="text-xs text-neutral-500 mt-3">You can unsubscribe any time. We never share your email.</p>
+
+            {error && <p className="text-[#FF2B66] text-xs mt-3">{error}</p>}
+
+            <div className="flex gap-3 mt-6">
+              <button onClick={onClose} disabled={confirming}
+                className="border border-neutral-800 hover:bg-white/5 text-neutral-300 font-semibold py-3 rounded-xl transition-colors text-sm flex-1 disabled:opacity-50">
+                Cancel
+              </button>
+              <button onClick={confirmSubscribe} disabled={confirming}
+                className="flex-1 bg-[#FF2B66] hover:bg-[#E0245A] text-white font-semibold py-3 rounded-xl transition-colors text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+                {confirming ? <><Loader2 size={15} className="animate-spin" /> Subscribing...</> : 'Confirm'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </ModalShell>
+  )
+}

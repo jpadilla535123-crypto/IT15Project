@@ -28,5 +28,7 @@ public class Venue : BaseEntity
 
     public string? Description { get; set; }
 
+    public string Status { get; set; } = "Available";
+
     public ICollection<Event> Events { get; set; } = new List<Event>();
 }

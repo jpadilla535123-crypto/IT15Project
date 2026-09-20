@@ -1,24 +1,29 @@
 using EventSphere.Server.Data;
+using EventSphere.Server.Extensions;
 using EventSphere.Server.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace EventSphere.Server.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Roles = "Admin,Manager,Finance")]
 public class BudgetsController : ControllerBase
 {
-    private readonly InMemoryDataContext _data;
+    private readonly AppDbContext _db;
 
-    public BudgetsController(InMemoryDataContext data)
+    public BudgetsController(AppDbContext db)
     {
-        _data = data;
+        _db = db;
     }
 
     [HttpGet]
-    public IActionResult GetAll(int? eventId = null, string? category = null)
+    public IActionResult GetAll(int? eventId = null, string? category = null,
+        string? sortBy = null, string? sortDir = null, int? page = null, int? pageSize = null)
     {
-        var query = _data.Budgets.AsQueryable();
+        var query = _db.Budgets.AsQueryable();
 
         if (eventId.HasValue)
             query = query.Where(b => b.EventId == eventId);
@@ -26,61 +31,69 @@ public class BudgetsController : ControllerBase
         if (!string.IsNullOrEmpty(category))
             query = query.Where(b => b.Category == category);
 
-        return Ok(query
-            .OrderBy(b => b.Event!.Name)
-            .ThenBy(b => b.Category)
-            .ToList());
+        query = (sortBy, sortDir) switch
+        {
+            ("category", "asc") => query.OrderBy(b => b.Category),
+            ("category", _) => query.OrderByDescending(b => b.Category),
+            ("plannedAmount", "asc") => query.OrderBy(b => b.PlannedAmount),
+            ("plannedAmount", _) => query.OrderByDescending(b => b.PlannedAmount),
+            ("actualAmount", "asc") => query.OrderBy(b => b.ActualAmount),
+            ("actualAmount", _) => query.OrderByDescending(b => b.ActualAmount),
+            _ => query.OrderBy(b => b.Category),
+        };
+
+        return Ok(query.Page(page, pageSize));
     }
 
     [HttpGet("{id}")]
-    public IActionResult GetById(int id)
+    public async Task<IActionResult> GetById(int id)
     {
-        var budget = _data.Budgets.FirstOrDefault(b => b.Id == id);
-        if (budget == null)
+        var entity = await _db.Budgets.FindAsync(id);
+        if (entity == null)
             return NotFound();
 
-        return Ok(budget);
+        return Ok(entity);
     }
 
     [HttpPost]
-    public IActionResult Create([FromBody] Budget budget)
+    public async Task<IActionResult> Create([FromBody] Budget entity)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        budget.Id = _data.NextId(_data.Budgets);
-        budget.CreatedAt = DateTime.UtcNow;
-        budget.UpdatedAt = DateTime.UtcNow;
-        _data.Budgets.Add(budget);
+        _db.Budgets.Add(entity);
+        await _db.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(GetById), new { id = budget.Id }, budget);
+        return CreatedAtAction(nameof(GetById), new { id = entity.Id }, entity);
     }
 
     [HttpPut("{id}")]
-    public IActionResult Update(int id, [FromBody] Budget budget)
+    public async Task<IActionResult> Update(int id, [FromBody] Budget entity)
     {
-        var existing = _data.Budgets.FirstOrDefault(b => b.Id == id);
+        var existing = await _db.Budgets.FindAsync(id);
         if (existing == null)
             return NotFound();
 
-        existing.EventId = budget.EventId;
-        existing.Category = budget.Category;
-        existing.PlannedAmount = budget.PlannedAmount;
-        existing.ActualAmount = budget.ActualAmount;
-        existing.Notes = budget.Notes;
+        existing.EventId = entity.EventId;
+        existing.Category = entity.Category;
+        existing.PlannedAmount = entity.PlannedAmount;
+        existing.ActualAmount = entity.ActualAmount;
+        existing.Notes = entity.Notes;
         existing.UpdatedAt = DateTime.UtcNow;
 
+        await _db.SaveChangesAsync();
         return NoContent();
     }
 
     [HttpDelete("{id}")]
-    public IActionResult Delete(int id)
+    public async Task<IActionResult> Delete(int id)
     {
-        var budget = _data.Budgets.FirstOrDefault(b => b.Id == id);
-        if (budget == null)
+        var entity = await _db.Budgets.FindAsync(id);
+        if (entity == null)
             return NotFound();
 
-        _data.Budgets.Remove(budget);
+        _db.Budgets.Remove(entity);
+        await _db.SaveChangesAsync();
         return NoContent();
     }
 }

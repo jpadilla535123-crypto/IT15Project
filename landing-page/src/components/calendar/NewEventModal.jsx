@@ -56,7 +56,7 @@ export default function NewEventModal({ edit, onClose, onCreate, onUpdate, event
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fade-in" onClick={onClose} />
-      <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-200 dark:border-[#2A2A36] bg-white dark:bg-[#121217] shadow-2xl animate-fade-in">
+      <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto no-scrollbar rounded-2xl border border-gray-200 dark:border-[#2A2A36] bg-white dark:bg-[#121217] shadow-2xl animate-fade-in">
         <div className="sticky top-0 flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-[#2A2A36] bg-white dark:bg-[#121217]">
           <h3 className="font-bold text-lg text-gray-900 dark:text-white">
             {edit ? 'Update Event' : 'Create New Event'}
@@ -125,7 +125,7 @@ export default function NewEventModal({ edit, onClose, onCreate, onUpdate, event
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className={label}>Event Date</label>
               <input type="date" value={date} onChange={e => setDate(e.target.value)} className={input} />

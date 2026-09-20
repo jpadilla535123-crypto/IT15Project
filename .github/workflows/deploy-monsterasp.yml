@@ -1,0 +1,102 @@
+name: Deploy API to MonsterASP
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+  workflow_dispatch:
+
+concurrency:
+  group: monsterasp-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Publish + FTP deploy
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server/EventSphere.Server
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish (framework-dependent)
+        run: dotnet publish -c Release -o publish --no-self-contained
+
+      - name: Write production appsettings
+        shell: bash
+        env:
+          DB: ${{ secrets.PROD_DB_CONNECTION }}
+          ORIGIN: ${{ secrets.PROD_CORS_ORIGIN }}
+          JWT: ${{ secrets.PROD_JWT_KEY }}
+          PM: ${{ secrets.PROD_PAYMONGO_SECRET }}
+        run: |
+          jq -n \
+            --arg db "$DB" \
+            --arg origin "$ORIGIN" \
+            --arg jwt "$JWT" \
+            --arg pm "$PM" \
+            '{ConnectionStrings:{DefaultConnection:$db},Cors:{AllowedOrigins:[$origin]},Jwt:{Issuer:"EventSphere.Api",Audience:"EventSphere.Client",Key:$jwt,ExpiryMinutes:480},PayMongo:{BaseUrl:"https://api.paymongo.com/v1",SecretKey:$pm},Logging:{LogLevel:{Default:"Information","Microsoft.AspNetCore":"Warning"}},AllowedHosts:"*"}' \
+            > publish/appsettings.Production.json
+          echo "appsettings.Production.json generated"
+
+      - name: Force Production environment in web.config
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import re
+          p = "publish/web.config"
+          with open(p, "r", encoding="utf-8") as f:
+              c = f.read()
+          if "<environmentVariables>" not in c:
+              c = re.sub(
+                  r"(<aspNetCore[^>]*>)",
+                  r'\1\n    <environmentVariables>\n      <environmentVariable name="ASPNETCORE_ENVIRONMENT" value="Production" />\n    </environmentVariables>',
+                  c,
+                  count=1,
+              )
+              with open(p, "w", encoding="utf-8") as f:
+                  f.write(c)
+          print("web.config now forces ASPNETCORE_ENVIRONMENT=Production")
+          PY
+
+      - name: Stage app_offline.htm
+        shell: bash
+        run: |
+          echo '<!DOCTYPE html><html><head><title>Deploying ...</title></head><body><p>Server is updating. Please wait.</p></body></html>' > publish/app_offline.htm
+
+      - name: Deploy via FTP (keeps uploads folder)
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_LOGIN }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: publish/
+          server-dir: ./
+          protocol: ftp
+          dangerous-clean-slate: false
+          timeout: 300000
+
+      - name: Bring app back online
+        shell: bash
+        run: |
+          curl -sS --user "${{ secrets.FTP_LOGIN }}:${{ secrets.FTP_PASSWORD }}" \
+            "ftp://${{ secrets.FTP_HOST }}/" \
+            --quote "DELE app_offline.htm" \
+            --connect-timeout 30 --max-time 60 -o /dev/null || echo "WARN: could not remove app_offline.htm (app may still be offline)"
+
+      - name: Smoke test API
+        continue-on-error: true
+        shell: bash
+        run: |
+          code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 90 \
+            https://eventsphere-backend.runasp.net/api/events/public || echo "000")
+          echo "GET https://eventsphere-backend.runasp.net/api/events/public -> HTTP $code"

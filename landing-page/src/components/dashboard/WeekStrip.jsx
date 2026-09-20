@@ -1,84 +1,118 @@
+import { useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { CalendarHeart } from 'lucide-react'
-import { startOfWeekMonday, addDays, formatMonthDay, isToday } from './format'
+import { startOfWeekMonday, addDays } from './format'
 import { dateKey } from '../calendar/calendarUtils'
 
-const DAY_LETTERS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
+const CELL = [
+  'bg-gray-100 dark:bg-white/[0.03]',
+  'bg-[#FF2B66]/10',
+  'bg-[#FF2B66]/25',
+  'bg-[#FF2B66]/45',
+]
 
-const PILL_CLASS = {
-  Booked: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
-  New: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
-  Pending: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
-  Completed: 'bg-gray-100 text-gray-500 dark:bg-gray-500/15 dark:text-gray-300',
-  Cancelled: 'bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-300',
+const LEGEND = [
+  { label: '0', cls: CELL[0] },
+  { label: '1', cls: CELL[1] },
+  { label: '2–3', cls: CELL[2] },
+  { label: '4+', cls: CELL[3] },
+]
+
+function densityLevel(count) {
+  if (count === 0) return 0
+  if (count === 1) return 1
+  if (count <= 3) return 2
+  return 3
+}
+
+function padMonth(year, month) {
+  const first = new Date(year, month, 1)
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const startDay = (first.getDay() + 6) % 7
+
+  const cells = []
+  for (let i = 0; i < startDay; i++) cells.push(null)
+  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d))
+  while (cells.length % 7 !== 0) cells.push(null)
+  return cells
 }
 
 export default function WeekStrip({ data }) {
-  const today = new Date()
-  const start = startOfWeekMonday(today)
-  const days = Array.from({ length: 7 }, (_, i) => addDays(start, i))
+  const navigate = useNavigate()
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth()
+  const monthName = now.toLocaleDateString('en-US', { month: 'long' })
+  const cells = useMemo(() => padMonth(year, month), [year, month])
 
-  const groups = new Map()
-  data.events.forEach(e => {
-    const k = dateKey(e.StartDate)
-    if (!groups.has(k)) groups.set(k, [])
-    groups.get(k).push(e)
-  })
+  const dayCounts = useMemo(() => {
+    const map = {}
+    data.events.forEach(e => {
+      const d = dateKey(e.StartDate)
+      map[d] = (map[d] || 0) + 1
+    })
+    return map
+  }, [data.events])
+
+  const todayKey = dateKey(now)
+  const totalMonth = cells.filter(Boolean).length
+  const daysWithEvents = cells.filter(d => d && dayCounts[dateKey(d)]).length
+  const maxDensity = Math.max(0, ...Object.values(dayCounts))
+
+  function handleClick(d) {
+    if (!d) return
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    navigate(`/calendar?date=${iso}`)
+  }
 
   return (
-    <section className="shrink-0 rounded-2xl border border-gray-200 dark:border-[#2A2A36] bg-white dark:bg-[#121217] p-4">
+    <section className="rounded-2xl border border-gray-200 dark:border-[#2A2A36] bg-white dark:bg-[#121217] p-4">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <div className="h-8 w-8 rounded-lg bg-[#FF2B66]/10 flex items-center justify-center text-[#FF2B66]">
             <CalendarHeart size={16} />
           </div>
           <div>
-            <h3 className="font-bold text-gray-900 dark:text-white leading-tight">This Week</h3>
-            <p className="text-[11px] text-gray-400 dark:text-[#6B7280]">
-              {formatMonthDay(days[0])} – {formatMonthDay(days[6])}
-            </p>
+            <h3 className="font-bold text-gray-900 dark:text-white leading-tight">{monthName} {year}</h3>
+            <p className="text-[11px] text-gray-400 dark:text-[#6B7280]">{daysWithEvents} of {totalMonth} days with events</p>
           </div>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          {LEGEND.map(l => (
+            <div key={l.label} className="flex items-center gap-1">
+              <span className={`h-2.5 w-2.5 rounded-sm ${l.cls}`} />
+              <span className="text-[9px] font-semibold text-gray-400 dark:text-[#6B7280]">{l.label}</span>
+            </div>
+          ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-1.5">
-        {days.map((d, i) => {
-          const isCur = isToday(d)
-          const list = groups.get(dateKey(d)) || []
-          const visible = list.slice(0, 2)
-          const more = list.length - visible.length
+      {/* day-of-week labels */}
+      <div className="grid grid-cols-7 gap-[3px] mb-[3px]">
+        {['M','T','W','T','F','S','S'].map((l, i) => (
+          <span key={i} className="text-center text-[9px] font-bold text-gray-400 dark:text-[#6B7280]">{l}</span>
+        ))}
+      </div>
+
+      {/* heatmap grid */}
+      <div className="grid grid-cols-7 gap-[3px]">
+        {cells.map((d, i) => {
+          if (!d) return <div key={`pad-${i}`} />
+          const k = dateKey(d)
+          const count = dayCounts[k] || 0
+          const level = densityLevel(count)
+          const isToday = k === todayKey
           return (
-            <div key={i}
-              className={`flex flex-col rounded-xl border p-2 min-h-[110px] ${
-                isCur ? 'border-[#FF2B66] bg-[#FF2B66]/5' : 'border-gray-200 dark:border-[#2A2A36]'
+            <button key={k} onClick={() => handleClick(d)}
+              title={`${d.getDate()} ${d.toLocaleDateString('en-US', { month: 'short' })}${count ? ` — ${count} event${count > 1 ? 's' : ''}` : ''}`}
+              className={`relative aspect-square rounded-md flex items-center justify-center text-[10px] font-bold transition-all hover:scale-110 hover:z-10 ${
+                CELL[level]
+              } ${isToday ? 'ring-2 ring-[#FF2B66]' : ''} ${
+                isToday ? 'text-[#FF2B66]' : level === 3 ? 'text-white' : 'text-gray-700 dark:text-gray-300'
               }`}>
-              <div className="flex flex-col items-center">
-                <span className={`text-[10px] font-bold ${isCur ? 'text-[#FF2B66]' : 'text-gray-400 dark:text-[#6B7280]'}`}>
-                  {DAY_LETTERS[i]}
-                </span>
-                <span className={`mt-0.5 h-7 w-7 flex items-center justify-center rounded-full text-sm font-bold ${
-                  isCur ? 'bg-[#FF2B66] text-white' : 'text-gray-900 dark:text-white'
-                }`}>
-                  {d.getDate()}
-                </span>
-              </div>
-              <div className="mt-2 space-y-1">
-                {list.length === 0 ? (
-                  <span className="block text-center text-[9px] text-gray-300 dark:text-[#4B5563]">—</span>
-                ) : (
-                  <>
-                    {visible.map(e => (
-                      <span key={e.Id}
-                        className={`block truncate rounded px-1.5 py-0.5 text-[9px] font-semibold ${PILL_CLASS[e.Status] || PILL_CLASS.New}`}>
-                        {e.Name}
-                      </span>
-                    ))}
-                    {more > 0 && (
-                      <span className="block text-center text-[9px] font-bold text-[#FF2B66]">+{more} more</span>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
+              {d.getDate()}
+            </button>
           )
         })}
       </div>

@@ -86,7 +86,7 @@ export default function ManageEventsTable({ data }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
           <button className="h-10 w-10 rounded-xl bg-gray-100 dark:bg-[#181820] flex items-center justify-center text-gray-500 dark:text-[#9CA3AF] hover:text-[#FF2B66] transition-colors" title="Filter">
             <SlidersHorizontal size={17} />
           </button>

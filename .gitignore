@@ -9,3 +9,6 @@ appsettings.Development.json
 *.db-shm
 *.db-wal
 landing-page/dist/
+.env
+.env.*
+!.env.example

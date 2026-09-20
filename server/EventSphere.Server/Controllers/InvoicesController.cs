@@ -1,24 +1,29 @@
 using EventSphere.Server.Data;
+using EventSphere.Server.Extensions;
 using EventSphere.Server.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace EventSphere.Server.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Roles = "Admin,Manager,Finance")]
 public class InvoicesController : ControllerBase
 {
-    private readonly InMemoryDataContext _data;
+    private readonly AppDbContext _db;
 
-    public InvoicesController(InMemoryDataContext data)
+    public InvoicesController(AppDbContext db)
     {
-        _data = data;
+        _db = db;
     }
 
     [HttpGet]
-    public IActionResult GetAll(string? status = null, int? clientId = null)
+    public IActionResult GetAll(string? status = null, int? clientId = null, int? eventId = null,
+        string? sortBy = null, string? sortDir = null, int? page = null, int? pageSize = null)
     {
-        var query = _data.Invoices.AsQueryable();
+        var query = _db.Invoices.AsQueryable();
 
         if (!string.IsNullOrEmpty(status))
             query = query.Where(i => i.Status == status);
@@ -26,13 +31,29 @@ public class InvoicesController : ControllerBase
         if (clientId.HasValue)
             query = query.Where(i => i.ClientId == clientId);
 
-        return Ok(query.OrderByDescending(i => i.IssueDate).ToList());
+        if (eventId.HasValue)
+            query = query.Where(i => i.EventId == eventId);
+
+        query = (sortBy, sortDir) switch
+        {
+            ("issueDate", "asc") => query.OrderBy(i => i.IssueDate),
+            ("issueDate", _) => query.OrderByDescending(i => i.IssueDate),
+            ("dueDate", "asc") => query.OrderBy(i => i.DueDate),
+            ("dueDate", _) => query.OrderByDescending(i => i.DueDate),
+            ("amount", "asc") => query.OrderBy(i => i.Amount),
+            ("amount", _) => query.OrderByDescending(i => i.Amount),
+            ("status", "asc") => query.OrderBy(i => i.Status),
+            ("status", _) => query.OrderByDescending(i => i.Status),
+            _ => query.OrderByDescending(i => i.IssueDate),
+        };
+
+        return Ok(query.Page(page, pageSize));
     }
 
     [HttpGet("{id}")]
-    public IActionResult GetById(int id)
+    public async Task<IActionResult> GetById(int id)
     {
-        var invoice = _data.Invoices.FirstOrDefault(i => i.Id == id);
+        var invoice = await _db.Invoices.FindAsync(id);
         if (invoice == null)
             return NotFound();
 
@@ -40,7 +61,7 @@ public class InvoicesController : ControllerBase
     }
 
     [HttpPost]
-    public IActionResult Create([FromBody] Invoice invoice)
+    public async Task<IActionResult> Create([FromBody] Invoice invoice)
     {
         if (string.IsNullOrWhiteSpace(invoice.InvoiceNumber))
             invoice.InvoiceNumber = $"INV-{DateTime.Now:yyyyMMddHHmmss}";
@@ -48,18 +69,16 @@ public class InvoicesController : ControllerBase
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        invoice.Id = _data.NextId(_data.Invoices);
-        invoice.CreatedAt = DateTime.UtcNow;
-        invoice.UpdatedAt = DateTime.UtcNow;
-        _data.Invoices.Add(invoice);
+        _db.Invoices.Add(invoice);
+        await _db.SaveChangesAsync();
 
         return CreatedAtAction(nameof(GetById), new { id = invoice.Id }, invoice);
     }
 
     [HttpPut("{id}")]
-    public IActionResult Update(int id, [FromBody] Invoice invoice)
+    public async Task<IActionResult> Update(int id, [FromBody] Invoice invoice)
     {
-        var existing = _data.Invoices.FirstOrDefault(i => i.Id == id);
+        var existing = await _db.Invoices.FindAsync(id);
         if (existing == null)
             return NotFound();
 
@@ -74,24 +93,26 @@ public class InvoicesController : ControllerBase
         existing.Notes = invoice.Notes;
         existing.UpdatedAt = DateTime.UtcNow;
 
+        await _db.SaveChangesAsync();
         return NoContent();
     }
 
     [HttpDelete("{id}")]
-    public IActionResult Delete(int id)
+    public async Task<IActionResult> Delete(int id)
     {
-        var invoice = _data.Invoices.FirstOrDefault(i => i.Id == id);
+        var invoice = await _db.Invoices.FindAsync(id);
         if (invoice == null)
             return NotFound();
 
-        _data.Invoices.Remove(invoice);
+        _db.Invoices.Remove(invoice);
+        await _db.SaveChangesAsync();
         return NoContent();
     }
 
     [HttpPost("{id}/record-payment")]
-    public IActionResult RecordPayment(int id, [FromBody] decimal amount)
+    public async Task<IActionResult> RecordPayment(int id, [FromBody] decimal amount)
     {
-        var invoice = _data.Invoices.FirstOrDefault(i => i.Id == id);
+        var invoice = await _db.Invoices.FindAsync(id);
         if (invoice == null)
             return NotFound();
 
@@ -101,14 +122,15 @@ public class InvoicesController : ControllerBase
             : invoice.PaidAmount > 0 ? "Partial" : "Pending";
         invoice.UpdatedAt = DateTime.UtcNow;
 
-        _data.Payments.Add(new Payment
+        _db.Payments.Add(new Payment
         {
-            Id = _data.NextId(_data.Payments),
             InvoiceId = id,
             Amount = amount,
             PaymentDate = DateTime.Today,
             Method = "Other"
         });
+
+        await _db.SaveChangesAsync();
         return NoContent();
     }
 }

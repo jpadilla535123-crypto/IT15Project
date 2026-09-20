@@ -1,24 +1,30 @@
 using EventSphere.Server.Data;
+using EventSphere.Server.Extensions;
 using EventSphere.Server.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace EventSphere.Server.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class EventSuppliersController : ControllerBase
 {
-    private readonly InMemoryDataContext _data;
+    private readonly AppDbContext _db;
 
-    public EventSuppliersController(InMemoryDataContext data)
+    public EventSuppliersController(AppDbContext db)
     {
-        _data = data;
+        _db = db;
     }
 
     [HttpGet]
-    public IActionResult GetAll(int? eventId = null, int? supplierId = null)
+    public IActionResult GetAll(int? eventId = null, int? supplierId = null, string? status = null,
+        string? serviceType = null, string? sortBy = null, string? sortDir = null,
+        int? page = null, int? pageSize = null)
     {
-        var query = _data.EventSuppliers.AsQueryable();
+        var query = _db.EventSuppliers.AsQueryable();
 
         if (eventId.HasValue)
             query = query.Where(es => es.EventId == eventId);
@@ -26,58 +32,78 @@ public class EventSuppliersController : ControllerBase
         if (supplierId.HasValue)
             query = query.Where(es => es.SupplierId == supplierId);
 
-        return Ok(query.OrderByDescending(es => es.CreatedAt).ToList());
+        if (!string.IsNullOrEmpty(status))
+            query = query.Where(es => es.Status == status);
+
+        if (!string.IsNullOrEmpty(serviceType))
+            query = query.Where(es => es.ServiceType == serviceType);
+
+        query = (sortBy, sortDir) switch
+        {
+            ("serviceType", "asc") => query.OrderBy(es => es.ServiceType),
+            ("serviceType", _) => query.OrderByDescending(es => es.ServiceType),
+            ("cost", "asc") => query.OrderBy(es => es.Cost),
+            ("cost", _) => query.OrderByDescending(es => es.Cost),
+            ("status", "asc") => query.OrderBy(es => es.Status),
+            ("status", _) => query.OrderByDescending(es => es.Status),
+            _ => query.OrderByDescending(es => es.Status),
+        };
+
+        return Ok(query.Page(page, pageSize));
     }
 
     [HttpGet("{id}")]
-    public IActionResult GetById(int id)
+    public async Task<IActionResult> GetById(int id)
     {
-        var item = _data.EventSuppliers.FirstOrDefault(es => es.Id == id);
-        if (item == null)
+        var entity = await _db.EventSuppliers.FindAsync(id);
+        if (entity == null)
             return NotFound();
 
-        return Ok(item);
+        return Ok(entity);
     }
 
     [HttpPost]
-    public IActionResult Create([FromBody] EventSupplier item)
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<IActionResult> Create([FromBody] EventSupplier entity)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        item.Id = _data.NextId(_data.EventSuppliers);
-        item.CreatedAt = DateTime.UtcNow;
-        item.UpdatedAt = DateTime.UtcNow;
-        _data.EventSuppliers.Add(item);
+        _db.EventSuppliers.Add(entity);
+        await _db.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(GetById), new { id = item.Id }, item);
+        return CreatedAtAction(nameof(GetById), new { id = entity.Id }, entity);
     }
 
     [HttpPut("{id}")]
-    public IActionResult Update(int id, [FromBody] EventSupplier item)
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<IActionResult> Update(int id, [FromBody] EventSupplier entity)
     {
-        var existing = _data.EventSuppliers.FirstOrDefault(es => es.Id == id);
+        var existing = await _db.EventSuppliers.FindAsync(id);
         if (existing == null)
             return NotFound();
 
-        existing.EventId = item.EventId;
-        existing.SupplierId = item.SupplierId;
-        existing.ServiceType = item.ServiceType;
-        existing.Cost = item.Cost;
-        existing.Status = item.Status;
+        existing.EventId = entity.EventId;
+        existing.SupplierId = entity.SupplierId;
+        existing.ServiceType = entity.ServiceType;
+        existing.Cost = entity.Cost;
+        existing.Status = entity.Status;
         existing.UpdatedAt = DateTime.UtcNow;
 
+        await _db.SaveChangesAsync();
         return NoContent();
     }
 
     [HttpDelete("{id}")]
-    public IActionResult Delete(int id)
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<IActionResult> Delete(int id)
     {
-        var item = _data.EventSuppliers.FirstOrDefault(es => es.Id == id);
-        if (item == null)
+        var entity = await _db.EventSuppliers.FindAsync(id);
+        if (entity == null)
             return NotFound();
 
-        _data.EventSuppliers.Remove(item);
+        _db.EventSuppliers.Remove(entity);
+        await _db.SaveChangesAsync();
         return NoContent();
     }
 }

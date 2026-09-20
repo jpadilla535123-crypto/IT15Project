@@ -24,6 +24,9 @@ public class Event : BaseEntity
     [Display(Name = "Venue")]
     public int? VenueId { get; set; }
 
+    [Display(Name = "Access Type")]
+    public string AccessType { get; set; } = "Private";
+
     [DataType(DataType.MultilineText)]
     public string? Description { get; set; }
 

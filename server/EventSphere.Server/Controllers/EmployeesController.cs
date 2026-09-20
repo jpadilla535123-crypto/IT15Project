@@ -1,24 +1,29 @@
 using EventSphere.Server.Data;
+using EventSphere.Server.Extensions;
 using EventSphere.Server.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace EventSphere.Server.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class EmployeesController : ControllerBase
 {
-    private readonly InMemoryDataContext _data;
+    private readonly AppDbContext _db;
 
-    public EmployeesController(InMemoryDataContext data)
+    public EmployeesController(AppDbContext db)
     {
-        _data = data;
+        _db = db;
     }
 
     [HttpGet]
-    public IActionResult GetAll(string? role = null, string? search = null)
+    public IActionResult GetAll(string? role = null, string? search = null,
+        string? sortBy = null, string? sortDir = null, int? page = null, int? pageSize = null)
     {
-        var query = _data.Employees.AsQueryable();
+        var query = _db.Employees.AsQueryable();
 
         if (!string.IsNullOrEmpty(role))
             query = query.Where(e => e.Role == role);
@@ -29,13 +34,28 @@ public class EmployeesController : ControllerBase
                 e.LastName.Contains(search) ||
                 (e.Email != null && e.Email.Contains(search)));
 
-        return Ok(query.OrderBy(e => e.LastName).ToList());
+        query = (sortBy, sortDir) switch
+        {
+            ("lastName", "asc") => query.OrderBy(e => e.LastName),
+            ("lastName", _) => query.OrderByDescending(e => e.LastName),
+            ("firstName", "asc") => query.OrderBy(e => e.FirstName),
+            ("firstName", _) => query.OrderByDescending(e => e.FirstName),
+            ("role", "asc") => query.OrderBy(e => e.Role),
+            ("role", _) => query.OrderByDescending(e => e.Role),
+            ("status", "asc") => query.OrderBy(e => e.Status),
+            ("status", _) => query.OrderByDescending(e => e.Status),
+            ("hireDate", "asc") => query.OrderBy(e => e.HireDate),
+            ("hireDate", _) => query.OrderByDescending(e => e.HireDate),
+            _ => query.OrderBy(e => e.LastName),
+        };
+
+        return Ok(query.Page(page, pageSize));
     }
 
     [HttpGet("{id}")]
-    public IActionResult GetById(int id)
+    public async Task<IActionResult> GetById(int id)
     {
-        var employee = _data.Employees.FirstOrDefault(e => e.Id == id);
+        var employee = await _db.Employees.FindAsync(id);
         if (employee == null)
             return NotFound();
 
@@ -43,23 +63,23 @@ public class EmployeesController : ControllerBase
     }
 
     [HttpPost]
-    public IActionResult Create([FromBody] Employee employee)
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<IActionResult> Create([FromBody] Employee employee)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        employee.Id = _data.NextId(_data.Employees);
-        employee.CreatedAt = DateTime.UtcNow;
-        employee.UpdatedAt = DateTime.UtcNow;
-        _data.Employees.Add(employee);
+        _db.Employees.Add(employee);
+        await _db.SaveChangesAsync();
 
         return CreatedAtAction(nameof(GetById), new { id = employee.Id }, employee);
     }
 
     [HttpPut("{id}")]
-    public IActionResult Update(int id, [FromBody] Employee employee)
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<IActionResult> Update(int id, [FromBody] Employee employee)
     {
-        var existing = _data.Employees.FirstOrDefault(e => e.Id == id);
+        var existing = await _db.Employees.FindAsync(id);
         if (existing == null)
             return NotFound();
 
@@ -73,17 +93,20 @@ public class EmployeesController : ControllerBase
         existing.Status = employee.Status;
         existing.UpdatedAt = DateTime.UtcNow;
 
+        await _db.SaveChangesAsync();
         return NoContent();
     }
 
     [HttpDelete("{id}")]
-    public IActionResult Delete(int id)
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<IActionResult> Delete(int id)
     {
-        var employee = _data.Employees.FirstOrDefault(e => e.Id == id);
+        var employee = await _db.Employees.FindAsync(id);
         if (employee == null)
             return NotFound();
 
-        _data.Employees.Remove(employee);
+        _db.Employees.Remove(employee);
+        await _db.SaveChangesAsync();
         return NoContent();
     }
 }

@@ -1,4 +1,5 @@
-import { Search, Bell, Sparkles, Plus } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Clock } from 'lucide-react'
 import AppLayout from './AppLayout'
 import DashStats from '../components/dashboard/DashStats'
 import TodaysScheduleCard from '../components/dashboard/TodaysScheduleCard'
@@ -7,7 +8,7 @@ import StatusOverviewCard from '../components/dashboard/StatusOverviewCard'
 import WeekStrip from '../components/dashboard/WeekStrip'
 import QuickActions from '../components/dashboard/QuickActions'
 import { isToday } from '../components/dashboard/format'
-import { dashboardData } from '../components/dashboard/sampleData'
+import { useData } from '../api/data'
 
 function greeting() {
   const h = new Date().getHours()
@@ -23,13 +24,28 @@ function dateTag() {
   return `${weekday} ${d.getDate()} ${month} ${d.getFullYear()}`.toUpperCase()
 }
 
+function LiveClock() {
+  const [now, setNow] = useState(new Date())
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(t)
+  }, [])
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-[#121217] border border-gray-200 dark:border-[#2A2A36] px-3 py-1.5 text-[11px] font-bold tabular-nums text-gray-600 dark:text-[#9CA3AF]">
+      <Clock size={12} className="text-[#FF2B66]" />
+      {now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
+    </span>
+  )
+}
+
 export default function Dashboard({ user }) {
-  const name = user?.displayName || 'Administrator'
-  const todayCount = dashboardData.events.filter(e => isToday(e.StartDate)).length
-  const pending = dashboardData.leads.filter(l => l.Status === 'New').length
+  const { data } = useData()
+  const name = user?.fullName || 'Administrator'
+  const todayCount = data.events.filter(e => isToday(e.StartDate)).length
+  const pending = data.leads.filter(l => l.Status === 'New').length
 
   return (
-    <AppLayout user={user} badgeCount={dashboardData.leads.length}>
+    <AppLayout user={user} badgeCount={data.leads.length}>
       <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-5">
         <div>
           <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-gray-400 dark:text-[#6B7280]">
@@ -46,38 +62,20 @@ export default function Dashboard({ user }) {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          <button
-            className="h-10 w-10 rounded-xl bg-white dark:bg-[#121217] border border-gray-200 dark:border-[#2A2A36] flex items-center justify-center text-gray-500 dark:text-[#9CA3AF] hover:text-[#FF2B66] transition-colors"
-            title="Search">
-            <Search size={17} />
-          </button>
-          <button
-            className="relative h-10 w-10 rounded-xl bg-white dark:bg-[#121217] border border-gray-200 dark:border-[#2A2A36] flex items-center justify-center text-gray-500 dark:text-[#9CA3AF] hover:text-[#FF2B66] transition-colors"
-            title="Notifications">
-            <Bell size={17} />
-            <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-500" />
-          </button>
-          <button
-            className="flex items-center gap-1.5 rounded-xl bg-[#FF2B66]/10 text-[#FF2B66] px-3.5 py-2.5 text-xs font-semibold hover:bg-[#FF2B66]/15 transition-colors">
-            <Sparkles size={14} /> Chat with Eva
-          </button>
-          <button
-            className="inline-flex items-center gap-1.5 bg-[#FF2B66] hover:bg-[#E0245A] text-white text-sm font-semibold rounded-xl px-4 py-2.5 transition-colors">
-            <Plus size={16} /> New Booking
-          </button>
+          <LiveClock />
         </div>
       </div>
 
-      <DashStats data={dashboardData} />
+      <DashStats data={data} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch w-full">
         <div className="flex flex-col gap-4 h-full min-w-0">
-          <TodaysScheduleCard data={dashboardData} />
-          <WeekStrip data={dashboardData} />
+          <TodaysScheduleCard data={data} />
+          <WeekStrip data={data} />
         </div>
-        <AllBookingsCard data={dashboardData} />
+        <AllBookingsCard data={data} />
         <div className="flex flex-col gap-4 h-full min-w-0">
-          <StatusOverviewCard data={dashboardData} />
+          <StatusOverviewCard data={data} />
           <QuickActions />
         </div>
       </div>

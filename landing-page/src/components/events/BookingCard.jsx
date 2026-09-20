@@ -14,7 +14,7 @@ function initials(name) {
     .toUpperCase()
 }
 
-function AssignmentGrid({ rows, teamOptions, venueOptions, onRowChange }) {
+function AssignmentGrid({ rows, teamOptions, venueOptions, onRowChange, disabledTeamOptions, disabledVenueOptions }) {
   return (
     <div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-1">
@@ -33,6 +33,7 @@ function AssignmentGrid({ rows, teamOptions, venueOptions, onRowChange }) {
               options={teamOptions}
               value={row.teamId}
               placeholder="Please select a team member"
+              disabledOptions={disabledTeamOptions}
               onSelect={id => onRowChange(i, 'teamId', id)}
             />
             <AvatarSelect
@@ -40,6 +41,7 @@ function AssignmentGrid({ rows, teamOptions, venueOptions, onRowChange }) {
               options={venueOptions}
               value={row.venueId}
               placeholder="Please select a venue"
+              disabledOptions={disabledVenueOptions}
               onSelect={id => onRowChange(i, 'venueId', id)}
             />
           </div>
@@ -49,7 +51,7 @@ function AssignmentGrid({ rows, teamOptions, venueOptions, onRowChange }) {
   )
 }
 
-export default function BookingCard({ booking, expandedDefault, teamOptions, venueOptions, rows: controlledRows, onRowsChange, onAddRow }) {
+export default function BookingCard({ booking, expandedDefault, teamOptions, venueOptions, rows: controlledRows, onRowsChange, onAddRow, disabledTeamOptions, disabledVenueOptions }) {
   const [expanded, setExpanded] = useState(expandedDefault)
   const [internalRows, setInternalRows] = useState(booking.rows)
   const rows = controlledRows ?? internalRows
@@ -122,7 +124,7 @@ export default function BookingCard({ booking, expandedDefault, teamOptions, ven
             Booking confirmed on a first come, first served basis. A 30% down payment reserves the venue; the remaining
             balance is due 7 days before the event. Notes content will go here and will not truncate.
           </p>
-          <AssignmentGrid rows={rows} teamOptions={teamOptions} venueOptions={venueOptions} onRowChange={onRowChange} />
+          <AssignmentGrid rows={rows} teamOptions={teamOptions} venueOptions={venueOptions} onRowChange={onRowChange} disabledTeamOptions={disabledTeamOptions} disabledVenueOptions={disabledVenueOptions} />
           {onAddRow && (
             <button
               type="button"

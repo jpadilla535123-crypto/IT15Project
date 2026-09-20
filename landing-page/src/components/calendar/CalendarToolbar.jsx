@@ -9,7 +9,7 @@ const VIEWS = [
 export default function CalendarToolbar(props) {
   const {
     view, onViewChange, title, onNavigate,
-    onToday, onNewEvent, venues, clients,
+    onNewEvent, venues, clients,
     filters, onFilterChange, filterOpen, onToggleFilter,
   } = props
 
@@ -26,10 +26,6 @@ export default function CalendarToolbar(props) {
             {v.label}
           </button>
         ))}
-        <button onClick={onToday}
-          className="rounded-lg px-3.5 py-1.5 text-xs font-bold text-gray-500 dark:text-[#9CA3AF] hover:text-[#FF2B66] transition-colors">
-          Today
-        </button>
       </div>
 
       <div className="flex items-center gap-1 ml-1">

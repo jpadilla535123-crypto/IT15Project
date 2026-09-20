@@ -36,7 +36,7 @@ export default function EventDetailPanel({ event, onClose, onEdit, onCancelEvent
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+        <div className="flex-1 overflow-y-auto no-scrollbar p-6 space-y-5">
           <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-[#9CA3AF]">
             <CalendarDays size={15} className="text-[#FF2B66]" />
             {formatFullDate(event.StartDate)}
