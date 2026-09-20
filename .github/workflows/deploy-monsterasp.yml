@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'server/**'
+      - '.github/workflows/deploy-monsterasp.yml'
   workflow_dispatch:
 
 concurrency:
@@ -79,7 +80,7 @@ jobs:
           server: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_LOGIN }}
           password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: publish/
+          local-dir: server/EventSphere.Server/publish/
           server-dir: ./
           protocol: ftp
           dangerous-clean-slate: false
