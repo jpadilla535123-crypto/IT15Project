@@ -207,6 +207,33 @@ public static class SampleData
         if (employees.Count == 0)
             return;
 
+        if (nathan != null && !db.EmployeeAssignments.Any(a => a.EmployeeId == nathan.Id))
+        {
+            var byName = db.Events.ToDictionary(e => e.Name.Trim(), e => e, StringComparer.OrdinalIgnoreCase);
+            var rows = new List<EmployeeAssignment>();
+            foreach (var (name, role, hours, offsetDays, status) in new[]
+            {
+                ("Acme Annual Product Launch", "Operations Staff", 40m, -90, "Completed"),
+                ("Garcia Wedding", "Operations Staff", 12m, 40, "Assigned"),
+                ("Heritage Bank Customer Appreciation", "Operations Staff", 10m, 65, "Assigned"),
+            })
+            {
+                if (!byName.TryGetValue(name, out var ev))
+                    continue;
+                rows.Add(new EmployeeAssignment
+                {
+                    EventId = ev.Id,
+                    EmployeeId = nathan.Id,
+                    Role = role,
+                    AssignedDate = today.AddDays(offsetDays),
+                    Hours = hours,
+                    Status = status,
+                });
+            }
+            if (rows.Count > 0)
+                db.AddRange(rows);
+        }
+
         if (!db.Attendance.Any())
         {
             var assignments = db.EmployeeAssignments.Include(a => a.Event).ToList();
@@ -296,6 +323,10 @@ public static class SampleData
             }
             db.AddRange(balances);
         }
+
+        /* Persist attendance + assignments so the payslip block below can read
+           them from the database (a query would not see the un-saved changes). */
+        db.SaveChanges();
 
         if (!db.Payslips.Any())
         {
