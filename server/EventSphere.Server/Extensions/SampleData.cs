@@ -70,7 +70,7 @@ public static class SampleData
             new Event { Name = "BlueSky Tech Summit 2026", EventType = "Conference", Status = "Completed", Client = clients[1], Venue = venues[2], StartDate = today.AddMonths(-1).AddDays(-10), EndDate = today.AddMonths(-1).AddDays(-9), Description = "Two-day technology conference with breakout sessions." },
             new Event { Name = "Luna Events Gala Night", EventType = "Gala Dinner", Status = "Pending", Client = clients[2], Venue = venues[1], StartDate = today.AddDays(-1), EndDate = today.AddDays(0), Description = "Charity gala dinner with auction and live entertainment." },
             new Event { Name = "Garcia Wedding", EventType = "Wedding", Status = "Pending", Client = clients[3], Venue = venues[3], StartDate = today.AddMonths(1).AddDays(10), EndDate = today.AddMonths(1).AddDays(10), Description = "Beach wedding ceremony and reception." },
-            new Event { Name = "Heritage Bank Customer Appreciation", EventType = "Corporate Party", Status = "Pending", Client = clients[4], Venue = venues[1], StartDate = today.AddMonths(2).AddDays(5), EndDate = today.AddMonths(2).AddDays(5), Description = "Evening party to thank top corporate clients." },
+            new Event { Name = "Heritage Bank Customer Appreciation", EventType = "Corporate Party", Status = "Pending", AccessType = "Public", Client = clients[4], Venue = venues[1], StartDate = today.AddMonths(2).AddDays(5), EndDate = today.AddMonths(2).AddDays(5), Description = "Evening party to thank top corporate clients." },
         };
 
         db.AddRange(events);
