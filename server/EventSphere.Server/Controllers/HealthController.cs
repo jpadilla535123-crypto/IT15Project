@@ -17,7 +17,10 @@ public class HealthController : ControllerBase
 
     public HealthController(AppDbContext db) { _db = db; }
 
-    [HttpGet]
+    // Accept BOTH GET (browsers/professor) and HEAD (UptimeRobot/curl -I
+    // identity checks, which send HEAD to avoid pulling a body) so the
+    // "is this site alive" probe gets a 200 for either verb.
+    [AcceptVerbs("GET", "HEAD")]
     public async Task<IActionResult> Get()
     {
         // Any table root reaches the same DB connection, so a config-row
