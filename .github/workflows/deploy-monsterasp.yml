@@ -49,7 +49,7 @@ jobs:
             > publish/appsettings.Production.json
           echo "appsettings.Production.json generated"
 
-      - name: Configure web.config (Production env + stdout log)
+      - name: Configure web.config (force Production environment)
         shell: bash
         run: |
           python3 - <<'PY'
@@ -61,8 +61,6 @@ jobs:
           if not tag:
               raise SystemExit("aspNetCore tag not found")
           attrs = tag.group(0).rstrip("/>").rstrip()
-          attrs = attrs.replace('stdoutLogEnabled="false"', 'stdoutLogEnabled="true"')
-          attrs = re.sub(r'stdoutLogFile="[^"]*"', r'stdoutLogFile=".\\wwwroot\\logs\\stdout"', attrs)
           new_tag = attrs + ">\n" + \
               '    <environmentVariables>\n' + \
               '      <environmentVariable name="ASPNETCORE_ENVIRONMENT" value="Production" />\n' + \
@@ -79,9 +77,25 @@ jobs:
       - name: Stage app_offline.htm
         shell: bash
         run: |
-          echo '<!DOCTYPE html><html><head><title>Deploying ...</title></head><body><p>Server is updating. Please wait.</p></body></html>' > publish/app_offline.htm
+          mkdir -p offline
+          echo '<!DOCTYPE html><html><head><title>Deploying ...</title></head><body><p>Server is updating. Please wait.</p></body></html>' > offline/app_offline.htm
 
-      - name: Deploy via FTP (keeps uploads folder)
+      - name: Take app offline
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_LOGIN }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: server/EventSphere.Server/offline/
+          server-dir: ./wwwroot/
+          protocol: ftp
+          timeout: 120000
+
+      - name: Wait for app to stop
+        shell: bash
+        run: sleep 5
+
+      - name: Upload application files
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_HOST }}
@@ -91,6 +105,8 @@ jobs:
           server-dir: ./wwwroot/
           protocol: ftp
           dangerous-clean-slate: false
+          exclude:
+            - '**/logs/**'
           timeout: 300000
 
       - name: Bring app back online
@@ -109,5 +125,5 @@ jobs:
         shell: bash
         run: |
           code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 90 \
-            https://eventsphere-backend.runasp.net/api/events/public || echo "000")
-          echo "GET https://eventsphere-backend.runasp.net/api/events/public -> HTTP $code"
+            http://eventsphere-backend.runasp.net/api/events/public || echo "000")
+          echo "GET http://eventsphere-backend.runasp.net/api/events/public -> HTTP $code"
