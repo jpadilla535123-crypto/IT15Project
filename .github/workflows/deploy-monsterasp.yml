@@ -53,7 +53,7 @@ jobs:
         shell: bash
         run: |
           python3 - <<'PY'
-          import re
+          import re, xml.dom.minidom
           p = "publish/web.config"
           with open(p, "r", encoding="utf-8") as f:
               c = f.read()
@@ -62,7 +62,8 @@ jobs:
               raise SystemExit("aspNetCore tag not found")
           attrs = tag.group(0).rstrip("/>").rstrip()
           attrs = attrs.replace('stdoutLogEnabled="false"', 'stdoutLogEnabled="true"')
-          new_tag = attrs + ' stdoutLogFile=".\\wwwroot\\logs\\stdout">\n' + \
+          attrs = re.sub(r'stdoutLogFile="[^"]*"', r'stdoutLogFile=".\\wwwroot\\logs\\stdout"', attrs)
+          new_tag = attrs + ">\n" + \
               '    <environmentVariables>\n' + \
               '      <environmentVariable name="ASPNETCORE_ENVIRONMENT" value="Production" />\n' + \
               '    </environmentVariables>\n' + \
@@ -70,7 +71,9 @@ jobs:
           c = c[:tag.start()] + new_tag + c[tag.end():]
           with open(p, "w", encoding="utf-8") as f:
               f.write(c)
-          print("web.config patched")
+          # fail the build loudly if the result is not well-formed XML
+          xml.dom.minidom.parse(p)
+          print("web.config patched and VALID")
           PY
 
       - name: Stage app_offline.htm
