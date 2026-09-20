@@ -106,8 +106,7 @@ jobs:
           server-dir: ./wwwroot/
           protocol: ftp
           dangerous-clean-slate: false
-          exclude:
-            - '**/logs/**'
+          exclude: '**/logs/**'
           timeout: 300000
 
       - name: Bring app back online
