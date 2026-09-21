@@ -243,9 +243,10 @@ public class PaymentsController : ControllerBase
             if (!doc.RootElement.TryGetProperty("data", out var data))
                 return BadRequest(new { message = "PayMongo returned an unexpected response.", detail = TrimJson(body) });
 
+            var attributes = data.TryGetProperty("attributes", out var attrs) ? attrs : data;
             return Ok(new
             {
-                checkoutUrl = data.GetProperty("checkout_url").GetString(),
+                checkoutUrl = attributes.GetProperty("checkout_url").GetString(),
                 sessionId = data.GetProperty("id").GetString(),
             });
         }
