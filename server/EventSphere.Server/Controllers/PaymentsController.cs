@@ -19,13 +19,15 @@ public class PaymentsController : ControllerBase
 
     private readonly AppDbContext _db;
     private readonly IWebHostEnvironment _env;
+    private readonly ILogger<PaymentsController> _logger;
     private readonly string _payMongoBaseUrl;
     private readonly string _payMongoSecretKey;
 
-    public PaymentsController(AppDbContext db, IWebHostEnvironment env, IConfiguration config)
+    public PaymentsController(AppDbContext db, IWebHostEnvironment env, IConfiguration config, ILogger<PaymentsController> logger)
     {
         _db = db;
         _env = env;
+        _logger = logger;
         _payMongoBaseUrl = (config.GetSection("PayMongo:BaseUrl").Value ?? "https://api.paymongo.com/v1").TrimEnd('/');
         _payMongoSecretKey = config.GetSection("PayMongo:SecretKey").Value ?? "";
     }
@@ -245,9 +247,20 @@ public class PaymentsController : ControllerBase
                 sessionId = data.GetProperty("id").GetString(),
             });
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException ex)
         {
-            return BadRequest(new { message = "Could not reach PayMongo right now. Check that your PayMongo:SecretKey is correct, then try again — or attach a proof screenshot instead." });
+            _logger.LogError(ex, "PayMongo checkout request failed");
+            return BadRequest(new { message = "Could not reach PayMongo to create the payment. Check that your PayMongo:SecretKey is correct, then try again — or attach a proof screenshot instead.", type = "HttpRequestException" });
+        }
+        catch (TaskCanceledException ex)
+        {
+            _logger.LogError(ex, "PayMongo checkout request timed out");
+            return BadRequest(new { message = "The payment request to PayMongo timed out. Try again, or attach a proof screenshot instead.", type = "TaskCanceledException" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error creating PayMongo checkout");
+            return BadRequest(new { message = "Could not create the payment link.", type = ex.GetType().Name });
         }
     }
 
@@ -279,9 +292,15 @@ public class PaymentsController : ControllerBase
                 paid = paymentStatus == "paid",
             });
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException ex)
         {
-            return BadRequest(new { message = "Could not reach PayMongo right now to check the payment status." });
+            _logger.LogError(ex, "PayMongo status request failed");
+            return BadRequest(new { message = "Could not reach PayMongo right now to check the payment status.", type = "HttpRequestException" });
+        }
+        catch (TaskCanceledException ex)
+        {
+            _logger.LogError(ex, "PayMongo status request timed out");
+            return BadRequest(new { message = "The payment status check timed out.", type = "TaskCanceledException" });
         }
     }
 
