@@ -36,7 +36,7 @@ function MiniMonth({ year, month, groups, today, onJumpDay }) {
               } ${hasEvent && !isToday ? 'hover:bg-emerald-50 dark:hover:bg-emerald-500/10' : ''}`}>
               {d.getDate()}
               {hasEvent && (
-                <span className={`absolute bottom-0.5 h-[3px] w-3 rounded-full ${isToday ? 'bg-white' : 'bg-emerald-500'}`} />
+                <span className={`absolute bottom-0.5 h-[3px] w-3 rounded-full ${isToday ? 'bg-white' : 'bg-emerald-400/70'}`} />
               )}
             </button>
           )

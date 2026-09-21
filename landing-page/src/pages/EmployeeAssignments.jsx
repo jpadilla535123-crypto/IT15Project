@@ -330,7 +330,7 @@ export default function EmployeeAssignments({ user }) {
                     <div className="mt-2 flex items-center gap-2">
                       {/* staffing meter */}
                       <div className="flex-1 h-1.5 rounded-full bg-gray-100 dark:bg-white/10 overflow-hidden">
-                        <div className={`h-full rounded-full transition-all duration-500 ${short ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                        <div className={`h-full rounded-full transition-all duration-500 ${short ? 'bg-amber-400' : 'bg-emerald-400'}`}
                           style={{ width: `${Math.min(100, (assigned.length / need) * 100)}%` }} />
                       </div>
                       <span className={`text-[10px] font-bold ${short ? 'text-amber-500' : 'text-emerald-500'}`}>

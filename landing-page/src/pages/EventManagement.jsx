@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import AppLayout from './AppLayout'
 import BookingsTable from '../components/events/BookingsTable'
 import EventDetailDrawer from '../components/events/EventDetailDrawer'
+import RequestList from '../components/events/RequestList'
 import { useData } from '../api/data'
 import { api } from '../api/client'
 
@@ -248,6 +249,8 @@ export default function EventManagement({ user }) {
           onConfirm={handleConfirm}
         />
       )}
+
+      <RequestList />
     </AppLayout>
   )
 }

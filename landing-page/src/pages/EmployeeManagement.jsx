@@ -12,15 +12,15 @@ import { useSystem } from '../components/dashboard/SystemState'
 import EmployeeTeamModal from './EmployeeTeamModal'
 import './landingFx.css'
 
-const AVATAR_BG = ['bg-[#FF2B66]/15 text-[#FF2B66]', 'bg-emerald-500/15 text-emerald-500', 'bg-blue-500/15 text-blue-500', 'bg-amber-500/15 text-amber-500', 'bg-purple-500/15 text-purple-400']
+const AVATAR_BG = ['bg-[#FF2B66]/10 text-[#FF2B66]', 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400', 'bg-blue-500/10 text-blue-600 dark:text-blue-400', 'bg-amber-500/10 text-amber-600 dark:text-amber-400', 'bg-purple-500/10 text-purple-500 dark:text-purple-400']
 
 function initials(f, l) { return `${(f || '?')[0]}${(l || '')[0] || ''}`.toUpperCase() }
 
 const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 const ATT = {
-  P: { cls: 'bg-emerald-500 text-white', label: 'Present' },
-  A: { cls: 'bg-red-500 text-white', label: 'Absent' },
-  L: { cls: 'bg-amber-400 text-white', label: 'On Leave' },
+  P: { cls: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300', label: 'Present' },
+  A: { cls: 'bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-300', label: 'Absent' },
+  L: { cls: 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300', label: 'On Leave' },
   O: { cls: 'bg-gray-100 dark:bg-white/10 text-gray-400', label: 'Day off' },
 }
 const ATT_CYCLE = ['P', 'P', 'P', 'L', 'A', 'O', 'P', 'P'] // click cycles through a sensible pattern

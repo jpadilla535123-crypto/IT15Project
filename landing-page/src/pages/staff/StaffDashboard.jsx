@@ -9,11 +9,11 @@ import { toDate, formatFullDate } from '../../components/dashboard/format'
 import { statusMeta } from '../../components/calendar/calendarUtils'
 
 const ATTENDANCE_META = {
-  Present: { label: 'Present', cls: 'bg-emerald-500', text: 'text-emerald-500' },
-  Late: { label: 'Late', cls: 'bg-amber-400', text: 'text-amber-400' },
-  Absent: { label: 'Absent', cls: 'bg-red-500', text: 'text-red-500' },
-  Leave: { label: 'Leave', cls: 'bg-sky-400', text: 'text-sky-400' },
-  RestDay: { label: 'Rest day', cls: 'bg-gray-400', text: 'text-gray-400' },
+  Present: { label: 'Present', cls: 'bg-emerald-400', text: 'text-emerald-500' },
+  Late: { label: 'Late', cls: 'bg-amber-400', text: 'text-amber-500' },
+  Absent: { label: 'Absent', cls: 'bg-red-400', text: 'text-red-400' },
+  Leave: { label: 'Leave', cls: 'bg-sky-400', text: 'text-sky-500' },
+  RestDay: { label: 'Rest day', cls: 'bg-gray-300', text: 'text-gray-400' },
 }
 
 function greeting() {
@@ -67,14 +67,14 @@ function CardTitle({ icon: Icon, title, sub }) {
 
 function StatCard({ icon: Icon, label, value, sub, tone }) {
   return (
-    <div className="rounded-2xl border border-gray-200 dark:border-[#2A2A36] bg-white dark:bg-[#121217] p-4 flex items-start gap-3.5">
-      <div className={`h-10 w-10 rounded-xl ${tone || 'bg-[#FF2B66]/10'} flex items-center justify-center ${tone ? 'text-white' : 'text-[#FF2B66]'}`}>
-        <Icon size={19} />
-      </div>
-      <div className="min-w-0">
+    <div className="rounded-2xl border border-gray-200 dark:border-[#2A2A36] bg-white dark:bg-[#121217] p-4 flex items-center gap-3.5">
+      <div className="min-w-0 flex-1">
         <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400 dark:text-[#6B7280]">{label}</p>
         <p className="mt-0.5 text-2xl font-extrabold tabular-nums text-gray-900 dark:text-white">{value}</p>
         {sub && <p className="text-[11px] text-gray-400 dark:text-[#6B7280]">{sub}</p>}
+      </div>
+      <div className={`h-10 w-10 shrink-0 rounded-xl ${tone || 'bg-[#FF2B66]/10'} flex items-center justify-center ${tone ? 'text-white' : 'text-[#FF2B66]'}`}>
+        <Icon size={19} />
       </div>
     </div>
   )
@@ -185,8 +185,8 @@ export default function StaffDashboard({ user }) {
         <StatCard icon={Umbrella} label="Available leaves" value={leave.availableDays} sub={`${leave.usedDays} of ${leave.totalDays} used`} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
-        <div className="lg:col-span-2 flex flex-col gap-4 min-w-0">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-start">
+        <div className="lg:col-span-2 flex flex-col gap-3 min-w-0">
           <Card>
             <CardTitle icon={CalendarDays} title="My Schedule" sub="Upcoming shifts, events and duty load" />
             {d.upcoming.length === 0 ? (
@@ -261,7 +261,7 @@ export default function StaffDashboard({ user }) {
           </Card>
         </div>
 
-        <div className="flex flex-col gap-4 min-w-0">
+        <div className="flex flex-col gap-3 min-w-0">
           <Card>
             <CardTitle icon={FilePlus2} title="File a Leave" sub={`${leave.availableDays} day(s) available this year`} />
             <form onSubmit={submitLeave} className="space-y-3">
@@ -281,7 +281,7 @@ export default function StaffDashboard({ user }) {
               </div>
               <label className="flex flex-col gap-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">Reason</span>
-                <textarea rows={3} required maxLength={300} value={leaveForm.reason}
+                <textarea rows={2} required maxLength={300} value={leaveForm.reason}
                   onChange={e => setLeaveForm(f => ({ ...f, reason: e.target.value }))}
                   placeholder="Why do you need this leave? (this shows on your attendance record)"
                   className="w-full resize-none rounded-xl border border-gray-200 dark:border-[#2A2A36] bg-gray-50 dark:bg-[#0B0B0E] px-3 py-2.5 text-sm text-gray-900 dark:text-white outline-none focus:border-[#FF2B66]/60 placeholder:text-gray-400" />

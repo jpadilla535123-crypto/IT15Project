@@ -15,10 +15,10 @@ export const EVENT_TYPES = [
 export const EVENT_STATUSES = ['New', 'Booked', 'Completed', 'Cancelled', 'Pending']
 
 export const STATUS_META = {
-  Booked: { dot: 'bg-emerald-500', left: 'border-l-emerald-500', badge: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400' },
-  New: { dot: 'bg-blue-500', left: 'border-l-blue-500', badge: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-400' },
+  Booked: { dot: 'bg-emerald-400', left: 'border-l-emerald-400', badge: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400' },
+  New: { dot: 'bg-blue-400', left: 'border-l-blue-400', badge: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-400' },
   Completed: { dot: 'bg-gray-400', left: 'border-l-gray-400', badge: 'bg-gray-100 text-gray-600 dark:bg-gray-500/15 dark:text-gray-300' },
-  Cancelled: { dot: 'bg-red-500', left: 'border-l-red-500', badge: 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400' },
+  Cancelled: { dot: 'bg-red-400', left: 'border-l-red-400', badge: 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400' },
   Pending: { dot: 'bg-amber-400', left: 'border-l-amber-400', badge: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400' },
 }
 

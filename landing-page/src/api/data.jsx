@@ -86,6 +86,7 @@ function mapLead(l) {
     EventType: l.eventType,
     EstimatedBudget: Number(l.estimatedBudget) || 0,
     Status: l.status,
+    Notes: l.notes,
     CreatedDate: toDate(l.createdDate),
   }
 }

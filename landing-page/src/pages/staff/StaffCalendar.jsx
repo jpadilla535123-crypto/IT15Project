@@ -9,11 +9,11 @@ import { dateKey } from '../../components/calendar/calendarUtils'
 import { statusMeta } from '../../components/calendar/calendarUtils'
 
 const ATT_META = {
-  Present: { label: 'Present', cls: 'bg-emerald-500' },
-  Late: { label: 'Late', cls: 'bg-amber-400' },
-  Absent: { label: 'Absent', cls: 'bg-red-500' },
-  Leave: { label: 'Leave', cls: 'bg-sky-400' },
-  RestDay: { label: 'Rest day', cls: 'bg-gray-400' },
+  Present: { label: 'Present', cell: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300', dot: 'bg-emerald-400' },
+  Late: { label: 'Late', cell: 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300', dot: 'bg-amber-400' },
+  Absent: { label: 'Absent', cell: 'bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-300', dot: 'bg-red-400' },
+  Leave: { label: 'Leave', cell: 'bg-sky-100 text-sky-800 dark:bg-sky-500/20 dark:text-sky-300', dot: 'bg-sky-400' },
+  RestDay: { label: 'Rest day', cell: 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300', dot: 'bg-gray-400' },
 }
 
 const WEEK_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
@@ -132,7 +132,7 @@ export default function StaffCalendar({ user }) {
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 justify-end">
                 {Object.entries(ATT_META).map(([k, m]) => (
                   <span key={k} className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-gray-400 dark:text-[#6B7280]">
-                    <span className={`h-2.5 w-2.5 rounded-sm ${m.cls}`} /> {m.label}
+                    <span className={`h-2.5 w-2.5 rounded-sm ${m.dot}`} /> {m.label}
                   </span>
                 ))}
                 <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-gray-400 dark:text-[#6B7280]">
@@ -161,16 +161,16 @@ export default function StaffCalendar({ user }) {
                   <button key={k} onClick={() => setSelectedKey(k)}
                     className={`relative aspect-square rounded-lg flex flex-col items-center justify-center text-[11px] font-bold transition-all hover:scale-[1.04] hover:z-10 ${
                       attMeta
-                        ? `${attMeta.cls} text-white`
+                        ? `${attMeta.cell}`
                         : hasDuty
-                          ? 'bg-[#FF2B66]/15 text-[#FF2B66]'
+                          ? 'bg-[#FF2B66]/10 text-[#FF2B66]'
                           : 'bg-gray-100 dark:bg-white/[0.03] text-gray-600 dark:text-gray-300'
                     } ${isToday ? 'ring-2 ring-[#FF2B66]' : ''} ${isSelected ? 'ring-2 ring-gray-400 dark:ring-white/40' : ''}`}>
                     {d.getDate()}
                     {hasDuty && (
                       <span className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-0.5">
                         {row.assignments.map(a => (
-                          <span key={a.id} className="h-1 w-1 rounded-full bg-current opacity-80" />
+                          <span key={a.id} className="h-1 w-1 rounded-full bg-current opacity-70" />
                         ))}
                       </span>
                     )}
@@ -204,7 +204,7 @@ export default function StaffCalendar({ user }) {
                 <div className="rounded-xl border border-gray-200 dark:border-[#2A2A36] bg-gray-50 dark:bg-[#0B0B0E] p-4">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-[#6B7280] mb-1">Attendance</p>
                   <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <span className={`h-2.5 w-2.5 rounded-full ${(ATT_META[selected.attendance.status]?.cls) || 'bg-gray-400'}`} />
+                    <span className={`h-2.5 w-2.5 rounded-full ${(ATT_META[selected.attendance.status]?.dot) || 'bg-gray-400'}`} />
                     {ATT_META[selected.attendance.status]?.label || selected.attendance.status}
                   </p>
                   {selected.attendance.notes && <p className="text-xs text-gray-500 dark:text-[#9CA3AF] mt-1.5">{selected.attendance.notes}</p>}
