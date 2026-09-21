@@ -9,6 +9,13 @@
   body {
     @apply bg-dark-900 text-gray-300 font-sans;
   }
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  *::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @keyframes slide-in-right {

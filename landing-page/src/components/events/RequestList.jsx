@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Inbox, MessageSquare, Phone, Loader2, Check, X, ArrowLeft,
   Send, Building2, Mail,
@@ -30,7 +30,7 @@ function sourceLabel(source) {
    Stacked requests come from the landing page (services + contact us) and
    arrive as leads via POST /api/leads/public. From here staff can confirm,
    message (email), call or cancel each request. */
-export default function RequestList() {
+export default function RequestList({ hidden = false }) {
   const { data, reload } = useData()
   const [open, setOpen] = useState(false)
   const [selectedId, setSelectedId] = useState(null)
@@ -53,6 +53,12 @@ export default function RequestList() {
     setConfirmCancel(false)
     setCancelNote('')
   }
+
+  useEffect(() => {
+    if (hidden) closeAll()
+  }, [hidden])
+
+  if (hidden) return null
 
   async function runAction(fn) {
     setActionMsg(null)

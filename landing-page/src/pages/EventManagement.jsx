@@ -250,7 +250,7 @@ export default function EventManagement({ user }) {
         />
       )}
 
-      <RequestList />
+      <RequestList hidden={!!selected} />
     </AppLayout>
   )
 }

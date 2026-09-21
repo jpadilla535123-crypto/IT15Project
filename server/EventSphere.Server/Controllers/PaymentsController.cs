@@ -199,21 +199,23 @@ public class PaymentsController : ControllerBase
         if (req.Amount <= 0)
             return BadRequest(new { message = "Amount must be greater than zero." });
 
-        var successUrl = req.SuccessUrl ?? $"{Request.Scheme}://{Request.Host}/billing?paymongo=success";
-        var cancelUrl = req.CancelUrl ?? $"{Request.Scheme}://{Request.Host}/billing?paymongo=cancelled";
-
-        using var client = new HttpClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_payMongoSecretKey}:")));
-
-        var payload = new
+        try
         {
-            data = new
+            var successUrl = req.SuccessUrl ?? $"{Request.Scheme}://{Request.Host}/billing?paymongo=success";
+            var cancelUrl = req.CancelUrl ?? $"{Request.Scheme}://{Request.Host}/billing?paymongo=cancelled";
+
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+                "Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_payMongoSecretKey}:")));
+
+            var payload = new
             {
-                attributes = new
+                data = new
                 {
-                    line_items = new[]
+                    attributes = new
                     {
+                        line_items = new[]
+                        {
                         new
                         {
                             currency = "PHP",
@@ -222,26 +224,31 @@ public class PaymentsController : ControllerBase
                             quantity = 1,
                         }
                     },
-                    payment_method_types = new[] { "gcash", "card" },
-                    success_url = successUrl,
-                    cancel_url = cancelUrl,
-                    description = req.Description,
+                        payment_method_types = new[] { "gcash", "card" },
+                        success_url = successUrl,
+                        cancel_url = cancelUrl,
+                        description = req.Description,
+                    }
                 }
-            }
-        };
+            };
 
-        var res = await client.PostAsJsonAsync($"{_payMongoBaseUrl}/checkout_sessions", payload);
-        var body = await res.Content.ReadAsStringAsync();
-        if (!res.IsSuccessStatusCode)
-            return BadRequest(new { message = "PayMongo could not create the checkout session.", detail = TrimJson(body) });
+            var res = await client.PostAsJsonAsync($"{_payMongoBaseUrl}/checkout_sessions", payload);
+            var body = await res.Content.ReadAsStringAsync();
+            if (!res.IsSuccessStatusCode)
+                return BadRequest(new { message = "PayMongo could not create the checkout session.", detail = TrimJson(body) });
 
-        using var doc = JsonDocument.Parse(body);
-        var data = doc.RootElement.GetProperty("data");
-        return Ok(new
+            using var doc = JsonDocument.Parse(body);
+            var data = doc.RootElement.GetProperty("data");
+            return Ok(new
+            {
+                checkoutUrl = data.GetProperty("checkout_url").GetString(),
+                sessionId = data.GetProperty("id").GetString(),
+            });
+        }
+        catch (HttpRequestException)
         {
-            checkoutUrl = data.GetProperty("checkout_url").GetString(),
-            sessionId = data.GetProperty("id").GetString(),
-        });
+            return BadRequest(new { message = "Could not reach PayMongo right now. Check that your PayMongo:SecretKey is correct, then try again — or attach a proof screenshot instead." });
+        }
     }
 
     /* Polls PayMongo for the status of a checkout session (sandbox). */
@@ -251,24 +258,31 @@ public class PaymentsController : ControllerBase
         if (string.IsNullOrWhiteSpace(_payMongoSecretKey))
             return BadRequest(new { message = "PayMongo sandbox key is not configured yet. Add PayMongo:SecretKey to appsettings.json." });
 
-        using var client = new HttpClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_payMongoSecretKey}:")));
-
-        var res = await client.GetAsync($"{_payMongoBaseUrl}/checkout_sessions/{sessionId}");
-        var body = await res.Content.ReadAsStringAsync();
-        if (!res.IsSuccessStatusCode)
-            return BadRequest(new { message = "Could not check that checkout session.", detail = TrimJson(body) });
-
-        using var doc = JsonDocument.Parse(body);
-        var attrs = doc.RootElement.GetProperty("data").GetProperty("attributes");
-        var paymentStatus = attrs.GetProperty("payment_status").GetString();
-        return Ok(new
+        try
         {
-            status = attrs.GetProperty("status").GetString(),
-            paymentStatus,
-            paid = paymentStatus == "paid",
-        });
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+                "Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_payMongoSecretKey}:")));
+
+            var res = await client.GetAsync($"{_payMongoBaseUrl}/checkout_sessions/{sessionId}");
+            var body = await res.Content.ReadAsStringAsync();
+            if (!res.IsSuccessStatusCode)
+                return BadRequest(new { message = "Could not check that checkout session.", detail = TrimJson(body) });
+
+            using var doc = JsonDocument.Parse(body);
+            var attrs = doc.RootElement.GetProperty("data").GetProperty("attributes");
+            var paymentStatus = attrs.GetProperty("payment_status").GetString();
+            return Ok(new
+            {
+                status = attrs.GetProperty("status").GetString(),
+                paymentStatus,
+                paid = paymentStatus == "paid",
+            });
+        }
+        catch (HttpRequestException)
+        {
+            return BadRequest(new { message = "Could not reach PayMongo right now to check the payment status." });
+        }
     }
 
     [HttpPut("{id}")]

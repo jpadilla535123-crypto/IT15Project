@@ -146,14 +146,22 @@ export default function ClientsPanel({ clients, onSelect, onAddClient }) {
           ))}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-gray-200 dark:border-[#2A2A36] bg-white dark:bg-[#121217]">
-          <table className="w-full text-sm">
+        <div className="overflow-hidden rounded-2xl border border-gray-200 dark:border-[#2A2A36] bg-white dark:bg-[#121217]">
+          <table className="w-full table-fixed text-sm">
+            <colgroup>
+              <col className="w-[30%]" />
+              <col className="w-[11%]" />
+              <col className="w-[24%]" />
+              <col className="w-[9%]" />
+              <col className="w-[15%]" />
+              <col className="w-[11%]" />
+            </colgroup>
             <thead>
               <tr className="border-b border-gray-200 dark:border-[#2A2A36]">
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">Name</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">Type</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">E-mail</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">Events</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-[#6B7280] text-center">Events</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">Budget</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">Status</th>
               </tr>
@@ -173,15 +181,15 @@ export default function ClientsPanel({ clients, onSelect, onAddClient }) {
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-gray-500 dark:text-[#9CA3AF] whitespace-nowrap">{c.ClientType || '—'}</td>
+                  <td className="px-4 py-3 text-gray-500 dark:text-[#9CA3AF] truncate">{c.ClientType || '—'}</td>
                   <td className="px-4 py-3">
-                    <span className="inline-flex items-center gap-1.5 text-gray-500 dark:text-[#9CA3AF]">
-                      <Mail size={13} className="text-gray-400 dark:text-[#6B7280]" /> {c.Email}
+                    <span className="inline-flex items-center gap-1.5 min-w-0 text-gray-500 dark:text-[#9CA3AF]">
+                      <Mail size={13} className="shrink-0 text-gray-400 dark:text-[#6B7280]" /> <span className="truncate">{c.Email}</span>
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">{c.Events}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">{formatCurrency(c.Budget)}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">{statusBadge(c.Status)}</td>
+                  <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-300">{c.Events}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300 truncate">{formatCurrency(c.Budget)}</td>
+                  <td className="px-4 py-3">{statusBadge(c.Status)}</td>
                 </tr>
               ))}
             </tbody>

@@ -59,7 +59,7 @@ export default function LeadDrawer({ lead, onClose, onStatus }) {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+        <div className="flex-1 overflow-y-auto no-scrollbar p-5 space-y-5">
           {/* Status pipeline */}
           <section>
             <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-[#6B7280] mb-2">Mark status</p>
@@ -91,6 +91,7 @@ export default function LeadDrawer({ lead, onClose, onStatus }) {
                 icon={Phone}
                 label="Phone"
                 value={lead.Phone || '—'}
+                copied={copied}
                 action={lead.Phone ? (
                   <a href={`tel:${lead.Phone}`} title="Call"
                     className="h-8 w-8 rounded-lg hover:bg-emerald-500/10 text-gray-400 hover:text-emerald-500 flex items-center justify-center transition-colors">
@@ -103,6 +104,7 @@ export default function LeadDrawer({ lead, onClose, onStatus }) {
                 icon={Mail}
                 label="E-mail"
                 value={lead.Email || '—'}
+                copied={copied}
                 action={lead.Email ? (
                   <a href={`mailto:${lead.Email}`} title="Send email"
                     className="h-8 w-8 rounded-lg hover:bg-[#FF2B66]/10 text-gray-400 hover:text-[#FF2B66] flex items-center justify-center transition-colors">
@@ -148,7 +150,7 @@ export default function LeadDrawer({ lead, onClose, onStatus }) {
   )
 }
 
-function ContactRow({ icon: Icon, label, value, action, onCopy }) {
+function ContactRow({ icon: Icon, label, value, action, onCopy, copied }) {
   return (
     <div className="flex items-center gap-3 px-4 py-3">
       <span className="h-8 w-8 shrink-0 rounded-lg bg-gray-100 dark:bg-white/5 flex items-center justify-center text-gray-400 dark:text-[#6B7280]">

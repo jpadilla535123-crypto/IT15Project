@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   X, Mail, Phone, Home, CalendarDays, CalendarRange, CircleDot, Ban, Save, Check, ChevronDown, ArrowRight, Search, ArrowLeft,
-  CreditCard, Smartphone, Plus, ImagePlus, Trash2, Loader2, ExternalLink, CheckCircle2,
+  Plus, ImagePlus, Trash2, Loader2, ExternalLink, CheckCircle2, Smartphone, CreditCard,
 } from 'lucide-react'
 import { formatFullDate, formatCurrency } from '../dashboard/format'
 import { EVENT_TYPES, toISO } from '../calendar/calendarUtils'
@@ -14,10 +14,6 @@ import { api, API_URL } from '../../api/client'
 import '../../pages/landingFx.css'
 
 const PIPELINE_STEPS = bookingSteps.slice(0, 5)
-const PAY_METHODS = [
-  { key: 'GCash', icon: Smartphone },
-  { key: 'Card', icon: CreditCard },
-]
 
 function Meta({ icon: Icon, label, value }) {
   return (
@@ -492,7 +488,7 @@ export default function EventDetailDrawer({ event, client, venue, venues = [], e
             </span>
           </div>
           <p className="mt-1 text-xs text-gray-500 dark:text-[#9CA3AF]">
-            GCash or Card only. Attach the proof screenshot of each payment — an entry only counts once a photo is uploaded, and you can add more for partial payments.
+            The client pays online through PayMongo (GCash or Card). After paying, attach the proof screenshot of each payment — an entry only counts once a photo is uploaded, and you can add more for partial payments.
           </p>
         </div>
 
@@ -522,49 +518,28 @@ export default function EventDetailDrawer({ event, client, venue, venues = [], e
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Method</Label>
-                    <div className="flex gap-1.5">
-                      {PAY_METHODS.map(m => {
-                        const active = row.method === m.key
-                        const Icon = m.icon
-                        return (
-                          <button key={m.key} onClick={() => setRow(row.key, { method: m.key })}
-                            className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all ${
-                              active
-                                ? 'bg-[#FF2B66] text-white shadow'
-                                : 'bg-gray-100 dark:bg-[#181820] text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#22222C]'
-                            }`}>
-                            <Icon size={14} /> {m.key}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <Label>Amount (₱)</Label>
                     <input type="number" min="0" className={inputClass} placeholder="0.00"
                       value={row.amount}
                       onChange={e => setRow(row.key, { amount: e.target.value })} />
                   </div>
-                </div>
-
-                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <Label hint="Optional">Reference / Note</Label>
                     <input type="text" className={inputClass} placeholder="e.g. reference # / session id"
                       value={row.reference}
                       onChange={e => setRow(row.key, { reference: e.target.value })} />
                   </div>
-                  <div>
-                    <Label hint="Optional">Pay online (PayMongo sandbox)</Label>
-                    <button onClick={() => payOnline(row)} disabled={row.paymongoBusy}
-                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-[#FF2B66]/40 bg-[#FF2B66]/10 px-3 py-2.5 text-xs font-bold text-[#FF2B66] hover:bg-[#FF2B66]/20 transition-colors disabled:opacity-60">
-                      {row.paymongoBusy ? <Loader2 size={13} className="animate-spin" /> : <ExternalLink size={13} />}
-                      {row.sessionId ? 'Open payment link again' : 'Pay with GCash / Card'}
-                    </button>
-                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <Label hint="The client pays on PayMongo's page — no QR to paste.">Pay online (PayMongo sandbox)</Label>
+                  <button onClick={() => payOnline(row)} disabled={row.paymongoBusy}
+                    className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-[#FF2B66]/40 bg-[#FF2B66]/10 px-3 py-2.5 text-xs font-bold text-[#FF2B66] hover:bg-[#FF2B66]/20 transition-colors disabled:opacity-60">
+                    {row.paymongoBusy ? <Loader2 size={13} className="animate-spin" /> : <ExternalLink size={13} />}
+                    {row.sessionId ? 'Open payment link again' : 'Pay with GCash / Card'}
+                  </button>
                 </div>
 
                 <div className="mt-3 flex items-center gap-3">
