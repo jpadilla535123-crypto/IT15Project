@@ -1,19 +1,36 @@
 import { useMemo, useState } from 'react'
-import { Search, Plus, Calendar, ChevronRight, ChevronDown } from 'lucide-react'
+import { Search, Plus, Calendar, ChevronRight, ChevronDown, List, LayoutGrid, Mail } from 'lucide-react'
 import { formatCurrency } from './format'
 
 const STATUS_ORDER = { New: 0, Booked: 1, Completed: 2, Cancelled: 3 }
 const TABS = ['All Clients', 'New', 'Booked', 'Completed', 'Cancelled']
 const TYPES = ['All Types', 'Individual', 'Company']
 
+const CLIENT_TONES = {
+  New: 'bg-[#FF2B66]/10 text-[#FF2B66] dark:bg-[#FF2B66]/15 dark:text-[#FF7A9F]',
+  Booked: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400',
+  Completed: 'bg-blue-100 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400',
+  Cancelled: 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-300',
+}
+
 function initials(name) {
   return String(name || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+}
+
+function statusBadge(status) {
+  const tone = CLIENT_TONES[status] || CLIENT_TONES.New
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${tone}`}>
+      {status}
+    </span>
+  )
 }
 
 export default function ClientsPanel({ clients, onSelect, onAddClient }) {
   const [tab, setTab] = useState('All Clients')
   const [query, setQuery] = useState('')
   const [type, setType] = useState('All Types')
+  const [view, setView] = useState('grid')
 
   const counts = useMemo(() => {
     const c = { 'All Clients': clients.length, New: 0, Booked: 0, Completed: 0, Cancelled: 0 }
@@ -76,6 +93,17 @@ export default function ClientsPanel({ clients, onSelect, onAddClient }) {
           <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
         </div>
 
+        <div className="flex h-10 items-center rounded-xl bg-gray-100 dark:bg-[#181820] p-1">
+          <button onClick={() => setView('grid')}
+            className={`h-8 px-3 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors ${view === 'grid' ? 'bg-white dark:bg-[#2A2A36] text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-[#9CA3AF]'}`}>
+            <LayoutGrid size={15} /> Grid
+          </button>
+          <button onClick={() => setView('list')}
+            className={`h-8 px-3 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors ${view === 'list' ? 'bg-white dark:bg-[#2A2A36] text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-[#9CA3AF]'}`}>
+            <List size={15} /> List
+          </button>
+        </div>
+
         <button onClick={onAddClient}
           className="inline-flex items-center gap-1.5 bg-[#FF2B66] hover:bg-[#E0245A] text-white text-sm font-semibold rounded-xl px-4 py-2.5 transition-colors">
           <Plus size={16} /> Add Client
@@ -86,7 +114,7 @@ export default function ClientsPanel({ clients, onSelect, onAddClient }) {
         <p className="rounded-2xl border border-gray-200 dark:border-[#2A2A36] bg-white dark:bg-[#121217] px-6 py-14 text-center text-sm text-gray-500 dark:text-[#9CA3AF]">
           No clients found.
         </p>
-      ) : (
+      ) : view === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filtered.map(c => (
             <button key={c.Id} onClick={() => onSelect(c)}
@@ -101,7 +129,7 @@ export default function ClientsPanel({ clients, onSelect, onAddClient }) {
                     <p className="text-xs text-gray-500 dark:text-[#9CA3AF] truncate">{c.CompanyName}</p>
                   </div>
                 </div>
-                <ChevronRight size={16} className="text-gray-300 dark:text-[#2A2A36] group-hover:text-[#FF2B66] group-hover:translate-x-0.5 transition-all mt-1.5 shrink-0" />
+                <span className="shrink-0 mt-1">{statusBadge(c.Status)}</span>
               </div>
               <div className="mt-4 pt-3 border-t border-gray-100 dark:border-[#2A2A36]/60 flex items-center gap-4 text-xs text-gray-500 dark:text-[#9CA3AF]">
                 <span className="flex items-center gap-1.5">
@@ -116,6 +144,48 @@ export default function ClientsPanel({ clients, onSelect, onAddClient }) {
               </div>
             </button>
           ))}
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-2xl border border-gray-200 dark:border-[#2A2A36] bg-white dark:bg-[#121217]">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 dark:border-[#2A2A36]">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">Name</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">Type</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">E-mail</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">Events</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">Budget</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-[#2A2A36]/60">
+              {filtered.map(c => (
+                <tr key={c.Id} onClick={() => onSelect(c)}
+                  className="hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors cursor-pointer group">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 shrink-0 rounded-full bg-[#FF2B66]/10 text-[#FF2B66] font-bold text-xs flex items-center justify-center">
+                        {initials(c.ContactPerson)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-gray-900 dark:text-white truncate group-hover:text-[#FF2B66] transition-colors">{c.ContactPerson}</p>
+                        <p className="text-[11px] text-gray-400 dark:text-[#6B7280] truncate">{c.CompanyName}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-gray-500 dark:text-[#9CA3AF] whitespace-nowrap">{c.ClientType || '—'}</td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex items-center gap-1.5 text-gray-500 dark:text-[#9CA3AF]">
+                      <Mail size={13} className="text-gray-400 dark:text-[#6B7280]" /> {c.Email}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">{c.Events}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">{formatCurrency(c.Budget)}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">{statusBadge(c.Status)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </section>

@@ -23,7 +23,7 @@ export default function NotificationPanel() {
 
   const items = useMemo(() => {
     const list = []
-    data.leads.filter(l => l.Status === 'New').forEach(l => {
+    data.leads.filter(l => l.Status === 'Pending' || l.Status === 'New').forEach(l => {
       list.push({ id: `lead-${l.Id}`, icon: ICONS.lead, title: 'New lead', text: `${l.CompanyName} — ${l.EventType || 'inquiry'}`, time: timeAgo(l.CreatedDate), path: '/leads', tone: 'bg-blue-500/10 text-blue-500' })
     })
     data.events.filter(e => isToday(e.StartDate)).slice(0, 3).forEach(e => {

@@ -68,14 +68,17 @@ public class LeadsController : ControllerBase
     }
 
     /* Public, unauthenticated entry point used by the native site's
-       newsletter ("Stay in the loop") and public ticket registration.
-       Creates a 'New' lead so it shows up in Lead Management. */
+       newsletter ("Stay in the loop"), Contact Us and the services pages.
+       Verifies the mailbox actually exists before saving, then creates a
+       'Pending' lead so it shows up in Lead Management. */
     public class PublicLeadRequest
     {
         [Required, EmailAddress]
         public string Email { get; set; } = string.Empty;
 
         public string? Name { get; set; }
+
+        public string? Phone { get; set; }
 
         public string? Source { get; set; }
 
@@ -93,18 +96,34 @@ public class LeadsController : ControllerBase
         if (req == null)
             return BadRequest(new { message = "Request body is required." });
 
-        if (string.IsNullOrWhiteSpace(req.Email) || !new EmailAddressAttribute().IsValid(req.Email))
+        var email = (req.Email ?? string.Empty).Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(email) || !new EmailAddressAttribute().IsValid(email))
             return BadRequest(new { message = "Enter a valid email address." });
+
+        if (await _db.Leads.AnyAsync(l => l.Email == email))
+            return Conflict(new { message = "This email is already on our list." });
+
+        if (!EmailCheckService.LooksReal(email))
+            return BadRequest(new { message = "We couldn't verify that email address — please double-check it and try again." });
+
+        var name = (req.Name ?? string.Empty).Trim();
+        if (string.IsNullOrEmpty(name))
+            name = EmailCheckService.SuggestName(email) ?? string.Empty;
+
+        var phone = (req.Phone ?? string.Empty).Trim();
+        if (phone.Length > 20)
+            return BadRequest(new { message = "That phone number looks too long — please check it." });
 
         var lead = new Lead
         {
-            CompanyName = string.IsNullOrWhiteSpace(req.Name) ? req.Email.Trim() : req.Name.Trim(),
-            ContactName = req.Name,
-            Email = req.Email.Trim(),
+            CompanyName = string.IsNullOrEmpty(name) ? email : name,
+            ContactName = string.IsNullOrEmpty(name) ? null : name,
+            Email = email,
+            Phone = phone,
             Source = string.IsNullOrWhiteSpace(req.Source) ? "Website" : req.Source.Trim(),
             EventType = req.EventType,
             EstimatedBudget = req.EstimatedBudget ?? 0m,
-            Status = "New",
+            Status = "Pending",
             Notes = req.Notes,
             CreatedDate = DateTime.Today,
         };
@@ -168,6 +187,33 @@ public class LeadsController : ControllerBase
     /* Shared action used by the Event Management "Requests" widget and Lead
        Management: confirm (mark as booked/coordinated), cancel (close the
        lead). Returns the updated lead so the UI can refresh in place. */
+    private static readonly HashSet<string> AllowedLeadStatuses = new(StringComparer.Ordinal)
+    {
+        "Pending", "Contacted", "Confirmed Appointment", "Lost", "Cancelled",
+    };
+
+    public class SetStatusRequest
+    {
+        public string? Status { get; set; }
+    }
+
+    [HttpPost("{id}/status")]
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<IActionResult> SetStatus(int id, [FromBody] SetStatusRequest? req)
+    {
+        var lead = await _db.Leads.FindAsync(id);
+        if (lead == null)
+            return NotFound(new { message = "Request not found." });
+
+        var status = (req?.Status ?? string.Empty).Trim();
+        if (!AllowedLeadStatuses.Contains(status))
+            return BadRequest(new { message = $"'{status}' is not a valid lead status." });
+
+        lead.Status = status;
+        lead.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return Ok(lead);
+    }
     [HttpPost("{id}/confirm")]
     [Authorize(Roles = "Admin,Manager")]
     public async Task<IActionResult> Confirm(int id)

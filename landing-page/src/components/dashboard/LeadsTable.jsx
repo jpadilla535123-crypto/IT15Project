@@ -1,17 +1,16 @@
 import { useMemo, useState } from 'react'
 import {
   Search, Plus, List, LayoutGrid, ChevronDown, ChevronLeft, ChevronRight,
-  Phone, Pencil, Check, X, Loader2,
+  X, Loader2,
 } from 'lucide-react'
 import { api } from '../../api/client'
 import { useData } from '../../api/data'
+import LeadDrawer from './LeadDrawer'
 
 const PAGE_SIZE = 10
 
-const EDIT_OPTIONS = ['Contacted', 'Confirmed Appointment', 'Lost']
-
 const STATUS_TONES = {
-  New: 'bg-[#FF2B66]/10 text-[#FF2B66] dark:bg-[#FF2B66]/15 dark:text-[#FF7A9F]',
+  Pending: 'bg-[#FF2B66]/10 text-[#FF2B66] dark:bg-[#FF2B66]/15 dark:text-[#FF7A9F]',
   Contacted: 'bg-blue-100 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400',
   'Confirmed Appointment': 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400',
   Cancelled: 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-300',
@@ -19,19 +18,19 @@ const STATUS_TONES = {
 }
 
 const STATUS_ORDER = {
-  New: 0,
+  Pending: 0,
   Contacted: 1,
   'Confirmed Appointment': 2,
   Cancelled: 3,
   Lost: 4,
 }
 
-const FILTER_OPTIONS = ['All Leads', 'New', 'Contacted', 'Confirmed Appointment', 'Lost']
+const FILTER_OPTIONS = ['All Leads', 'Pending', 'Contacted', 'Confirmed Appointment', 'Lost']
 const EVENT_TYPES = ['Conference', 'Wedding', 'Corporate', 'Concert', 'Private Party', 'Others']
 const SOURCES = ['Website', 'Referral', 'Phone', 'Walk-in', 'Email Campaign']
 
 function statusBadge(status) {
-  const tone = STATUS_TONES[status] || STATUS_TONES.New
+  const tone = STATUS_TONES[status] || STATUS_TONES.Pending
   return (
     <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${tone}`}>
       {status}
@@ -80,7 +79,7 @@ function AddLeadModal({ onClose, onCreated }) {
         source: form.source,
         eventType: form.eventType,
         estimatedBudget: Number(form.budget) || 0,
-        status: 'New',
+        status: 'Pending',
         notes: form.notes.trim(),
         createdDate: new Date().toISOString().slice(0, 10),
       })
@@ -186,15 +185,15 @@ export default function LeadsTable({ data }) {
   const [filter, setFilter] = useState('All Leads')
   const [view, setView] = useState('list')
   const [page, setPage] = useState(1)
-  const [menuId, setMenuId] = useState(null)
   const [showAdd, setShowAdd] = useState(false)
+  const [selectedId, setSelectedId] = useState(null)
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     const rows = leads.filter(l => {
       if (filter !== 'All Leads' && l.Status !== filter) return false
       if (!q) return true
-      return [l.ContactName, l.CompanyName, l.Email].some(v => String(v || '').toLowerCase().includes(q))
+      return [l.ContactName, l.Email, l.Phone, l.EventType].some(v => String(v || '').toLowerCase().includes(q))
     })
     return [...rows].sort((a, b) => {
       const statusDiff = (STATUS_ORDER[a.Status] ?? 9) - (STATUS_ORDER[b.Status] ?? 9)
@@ -210,23 +209,18 @@ export default function LeadsTable({ data }) {
   const from = total === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1
   const to = Math.min(safePage * PAGE_SIZE, total)
 
-  function updateStatus(id, status) {
+  const selected = leads.find(l => l.Id === selectedId) || null
+
+  function onStatus(id, status) {
     const lead = leads.find(l => l.Id === id)
-    if (!lead) return
+    if (!lead || lead.Status === status) return
     setLeads(list => list.map(l => (l.Id === id ? { ...l, Status: status } : l)))
-    setMenuId(null)
-    api.put(`/api/leads/${id}`, {
-      companyName: lead.CompanyName,
-      contactName: lead.ContactName,
-      email: lead.Email,
-      phone: lead.Phone,
-      source: lead.Source,
-      eventType: lead.EventType,
-      estimatedBudget: Number(lead.EstimatedBudget) || 0,
-      status,
-      notes: lead.Notes,
-      createdDate: lead.CreatedDate ? new Date(lead.CreatedDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
-    }).catch(err => console.error('Status update failed:', err))
+    api.post(`/api/leads/${id}/status`, { status })
+      .then(reload)
+      .catch(err => {
+        console.error('Status update failed:', err)
+        reload()
+      })
   }
 
   function onCreated(lead) {
@@ -298,59 +292,25 @@ export default function LeadsTable({ data }) {
               <tr className="border-b border-gray-200 dark:border-[#2A2A36]">
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">Name</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">E-mail</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">Company</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">Phone</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">Status</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-[#2A2A36]/60">
               {rows.map(lead => (
-                <tr key={lead.Id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors">
+                <tr key={lead.Id} onClick={() => setSelectedId(lead.Id)}
+                  className="hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors cursor-pointer group">
                   <td className="px-4 py-3.5">
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 shrink-0 rounded-full bg-[#FF2B66]/10 text-[#FF2B66] font-bold text-xs flex items-center justify-center">
                         {initials(lead.ContactName)}
                       </div>
-                      <span className="font-semibold text-gray-900 dark:text-white whitespace-nowrap">{lead.ContactName}</span>
+                      <span className="font-semibold text-gray-900 dark:text-white whitespace-nowrap group-hover:text-[#FF2B66] transition-colors">{lead.ContactName}</span>
                     </div>
                   </td>
                   <td className="px-4 py-3.5 text-gray-500 dark:text-[#9CA3AF] whitespace-nowrap">{lead.Email}</td>
-                  <td className="px-4 py-3.5 text-gray-600 dark:text-gray-300 whitespace-nowrap">{lead.CompanyName}</td>
+                  <td className="px-4 py-3.5 text-gray-600 dark:text-gray-300 whitespace-nowrap">{lead.Phone || '—'}</td>
                   <td className="px-4 py-3.5 whitespace-nowrap">{statusBadge(lead.Status)}</td>
-                  <td className="px-4 py-3.5">
-                    <div className="relative flex items-center justify-end gap-1">
-                      <a href={`tel:${lead.Phone || ''}`}
-                        className="h-8 w-8 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 flex items-center justify-center text-gray-400 dark:text-[#6B7280] hover:text-[#FF2B66] transition-colors"
-                        title="Call lead">
-                        <Phone size={16} />
-                      </a>
-                      {!isCallOnly(lead) && (
-                        <>
-                          <button onClick={() => setMenuId(menuId === lead.Id ? null : lead.Id)}
-                            className="h-8 w-8 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 flex items-center justify-center text-gray-400 dark:text-[#6B7280] hover:text-[#FF2B66] transition-colors"
-                            title="Edit status">
-                            <Pencil size={16} />
-                          </button>
-                          {menuId === lead.Id && (
-                            <div
-                              className="absolute right-0 top-full mt-1 z-20 w-48 rounded-xl border border-gray-200 dark:border-[#2A2A36] bg-white dark:bg-[#181820] shadow-lg py-1"
-                              onClick={e => e.stopPropagation()}>
-                              <p className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-[#6B7280]">
-                                Set status
-                              </p>
-                              {EDIT_OPTIONS.map(opt => (
-                                <button key={opt} onClick={() => updateStatus(lead.Id, opt)}
-                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-sm text-gray-600 dark:text-[#9CA3AF] hover:bg-gray-100 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white transition-colors">
-                                  <span className="flex-1">{opt}</span>
-                                  {lead.Status === opt && <Check size={14} className="text-[#FF2B66]" />}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -362,56 +322,28 @@ export default function LeadsTable({ data }) {
       ) : (
         <div className="p-5 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {rows.map(lead => (
-            <div key={lead.Id} className="rounded-xl border border-gray-200 dark:border-[#2A2A36] bg-gray-50 dark:bg-[#181820] p-5 space-y-3">
+            <button key={lead.Id} onClick={() => setSelectedId(lead.Id)}
+              className="text-left rounded-xl border border-gray-200 dark:border-[#2A2A36] bg-gray-50 dark:bg-[#181820] p-5 space-y-3 hover:border-[#FF2B66]/50 hover:bg-white dark:hover:bg-white/[0.04] transition-all group">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 shrink-0 rounded-full bg-[#FF2B66]/10 text-[#FF2B66] font-bold text-sm flex items-center justify-center">
                     {initials(lead.ContactName)}
                   </div>
                   <div>
-                    <p className="font-semibold text-gray-900 dark:text-white text-sm">{lead.ContactName}</p>
-                    <p className="text-xs text-gray-400 dark:text-[#6B7280]">{lead.CompanyName}</p>
+                    <p className="font-semibold text-gray-900 dark:text-white text-sm group-hover:text-[#FF2B66] transition-colors">{lead.ContactName}</p>
+                    <p className="text-xs text-gray-400 dark:text-[#6B7280]">{lead.EventType || 'General inquiry'}</p>
                   </div>
                 </div>
                 {statusBadge(lead.Status)}
               </div>
               <div className="space-y-1 text-[13px] text-gray-500 dark:text-[#9CA3AF]">
-                <p>{lead.Email}</p>
+                <p className="truncate">{lead.Email}</p>
                 {lead.Phone && <p>{lead.Phone}</p>}
-                {(lead.EventType || lead.EstimatedBudget > 0) && (
-                  <p>{[lead.EventType, lead.EstimatedBudget > 0 ? `Budget ₱${Number(lead.EstimatedBudget).toLocaleString()}` : null].filter(Boolean).join(' · ')}</p>
+                {lead.EstimatedBudget > 0 && (
+                  <p>Budget ₱{Number(lead.EstimatedBudget).toLocaleString()}</p>
                 )}
               </div>
-              <div className="flex items-center gap-1 pt-1 border-t border-gray-200 dark:border-[#2A2A36]">
-                <a href={`tel:${lead.Phone || ''}`}
-                  className="h-8 w-8 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 flex items-center justify-center text-gray-400 dark:text-[#6B7280] hover:text-[#FF2B66] transition-colors"
-                  title="Call lead">
-                  <Phone size={15} />
-                </a>
-                {!isCallOnly(lead) && (
-                  <div className="relative">
-                    <button onClick={() => setMenuId(menuId === lead.Id ? null : lead.Id)}
-                      className="h-8 px-2 rounded-lg text-xs font-semibold text-gray-500 dark:text-[#9CA3AF] hover:bg-gray-100 dark:hover:bg-white/10 flex items-center gap-1 transition-colors"
-                      title="Edit status">
-                      <Pencil size={14} /> Status
-                    </button>
-                    {menuId === lead.Id && (
-                      <div
-                        className="absolute left-0 top-full mt-1 z-20 w-48 rounded-xl border border-gray-200 dark:border-[#2A2A36] bg-white dark:bg-[#181820] shadow-lg py-1"
-                        onClick={e => e.stopPropagation()}>
-                        {EDIT_OPTIONS.map(opt => (
-                          <button key={opt} onClick={() => updateStatus(lead.Id, opt)}
-                            className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-sm text-gray-600 dark:text-[#9CA3AF] hover:bg-gray-100 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white transition-colors">
-                            <span className="flex-1">{opt}</span>
-                            {lead.Status === opt && <Check size={14} className="text-[#FF2B66]" />}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
+            </button>
           ))}
           {rows.length === 0 && (
             <p className="col-span-full py-10 text-center text-sm text-gray-500 dark:text-[#9CA3AF]">No leads found.</p>
@@ -442,10 +374,8 @@ export default function LeadsTable({ data }) {
       </div>
 
       {showAdd && <AddLeadModal onClose={() => setShowAdd(false)} onCreated={onCreated} />}
+
+      <LeadDrawer lead={selected} onClose={() => setSelectedId(null)} onStatus={onStatus} />
     </section>
   )
-}
-
-function isCallOnly(lead) {
-  return lead.Status === 'Confirmed Appointment' || lead.Status === 'Lost' || lead.Status === 'Cancelled'
 }

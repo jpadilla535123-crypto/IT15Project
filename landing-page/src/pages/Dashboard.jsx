@@ -42,7 +42,7 @@ export default function Dashboard({ user }) {
   const { data } = useData()
   const name = user?.fullName || 'Administrator'
   const todayCount = data.events.filter(e => isToday(e.StartDate)).length
-  const pending = data.leads.filter(l => l.Status === 'New').length
+  const pending = data.leads.filter(l => l.Status === 'Pending' || l.Status === 'New').length
 
   return (
     <AppLayout user={user} badgeCount={data.leads.length}>

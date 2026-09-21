@@ -9,6 +9,7 @@ import { formatFullDate } from '../dashboard/format'
 
 const REQ_TONES = {
   New: 'bg-[#FF2B66]/10 text-[#FF2B66] dark:bg-[#FF2B66]/15 dark:text-[#FF7A9F]',
+  Pending: 'bg-[#FF2B66]/10 text-[#FF2B66] dark:bg-[#FF2B66]/15 dark:text-[#FF7A9F]',
   Contacted: 'bg-blue-100 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400',
   'Confirmed Appointment': 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400',
   Cancelled: 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-300',
@@ -41,7 +42,7 @@ export default function RequestList() {
 
   const requests = (data.leads || []).slice().sort((a, b) =>
     (b.CreatedDate?.getTime?.() ?? 0) - (a.CreatedDate?.getTime?.() ?? 0))
-  const openCount = requests.filter(r => r.Status === 'New' || r.Status === 'Contacted').length
+  const openCount = requests.filter(r => r.Status === 'Pending' || r.Status === 'New' || r.Status === 'Contacted').length
   const selected = requests.find(r => r.Id === selectedId) || null
 
   function closeAll() {

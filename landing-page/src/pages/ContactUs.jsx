@@ -68,7 +68,7 @@ function FaqItem({ faq, open, onToggle }) {
 export function ContactUsSection({ onBrowseVenues }) {
   const [openFaq, setOpenFaq] = useState(0)
   const [eventType, setEventType] = useState('Conference')
-  const [form, setForm] = useState({ name: '', email: '', date: '', guests: '', message: '' })
+  const [form, setForm] = useState({ name: '', email: '', phone: '', date: '', guests: '', message: '' })
   const [errors, setErrors] = useState({})
   const [status, setStatus] = useState('idle') // idle | sending | sent
 
@@ -99,6 +99,7 @@ export function ContactUsSection({ onBrowseVenues }) {
     api.post('/api/leads/public', {
       name: form.name.trim(),
       email: form.email.trim(),
+      phone: form.phone.trim(),
       source: 'Website',
       eventType,
       notes: parts,
@@ -157,7 +158,7 @@ export function ContactUsSection({ onBrowseVenues }) {
                   Thanks, {form.name.split(' ')[0] || 'friend'} — a coordinator will email you at{' '}
                   <span className="text-white">{form.email}</span> within one business day.
                 </p>
-                <button onClick={() => { setStatus('idle'); setForm({ name: '', email: '', date: '', guests: '', message: '' }) }}
+                <button onClick={() => { setStatus('idle'); setForm({ name: '', email: '', phone: '', date: '', guests: '', message: '' }) }}
                   className="btn-ghost text-sm mt-2">Send another message</button>
               </div>
             ) : (
@@ -198,6 +199,12 @@ export function ContactUsSection({ onBrowseVenues }) {
                   </div>
                   <input type="number" min="1" value={form.guests} onChange={e => set('guests', e.target.value)}
                     placeholder="Estimated guests" style={{ accentColor: '#FF2B66' }}
+                    className="w-full bg-[#121216] border border-[#2A2A36] text-white rounded-xl px-4 py-3 text-sm placeholder:text-[#6B7280] focus:outline-none focus:border-[#FF2B66]/50" />
+                </div>
+
+                <div>
+                  <input type="tel" value={form.phone} onChange={e => set('phone', e.target.value)}
+                    placeholder="Phone number (optional)"
                     className="w-full bg-[#121216] border border-[#2A2A36] text-white rounded-xl px-4 py-3 text-sm placeholder:text-[#6B7280] focus:outline-none focus:border-[#FF2B66]/50" />
                 </div>
 

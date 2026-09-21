@@ -150,7 +150,7 @@ public static class SampleData
 
         db.AddRange(new List<Lead>
         {
-            new Lead { CompanyName = "Novacorp Retail", ContactName = "Kevin Tan", Email = "kevin@novacorp.ph", Phone = "+63 939 555 0501", Source = "Website", EventType = "Store Opening", EstimatedBudget = 400000m, Status = "New", Notes = "Interested in grand opening event for new flagship store.", CreatedDate = today.AddDays(-1) },
+            new Lead { CompanyName = "Novacorp Retail", ContactName = "Kevin Tan", Email = "kevin@novacorp.ph", Phone = "+63 939 555 0501", Source = "Website", EventType = "Store Opening", EstimatedBudget = 400000m, Status = "Pending", Notes = "Interested in grand opening event for new flagship store.", CreatedDate = today.AddDays(-1) },
             new Lead { CompanyName = "GreenFuture Inc.", ContactName = "Rose Dizon", Email = "rose@greenfuture.org", Phone = "+63 940 555 0502", Source = "Referral", EventType = "Conference", EstimatedBudget = 600000m, Status = "Contacted", Notes = "Annual sustainability conference, ~300 attendees.", CreatedDate = today.AddDays(-6) },
             new Lead { CompanyName = "SmartPay PH", ContactName = "Alex Ramos", Email = "alex@smartpay.ph", Phone = "+63 941 555 0503", Source = "LinkedIn", EventType = "Team Building", EstimatedBudget = 250000m, Status = "Qualified", Notes = "Looking at beach team building for Q3.", CreatedDate = today.AddDays(-12) },
             new Lead { CompanyName = "Golden Age Senior Home", ContactName = "Lorna Santiago", Email = "lorna@goldenage.ph", Phone = "+63 942 555 0504", Source = "Walk-in", EventType = "Anniversary", EstimatedBudget = 150000m, Status = "Qualified", Notes = "10th anniversary celebration, ~100 guests.", CreatedDate = today.AddDays(-18) },

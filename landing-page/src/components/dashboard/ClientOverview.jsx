@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Users, Globe, Send, Sparkles } from 'lucide-react'
+import { Users, Globe } from 'lucide-react'
 
 const DOTS = {
   New: 'bg-[#FF2B66]',
@@ -68,27 +68,6 @@ export default function ClientOverview({ clients }) {
             </li>
           ))}
         </ul>
-      </section>
-
-      <section className="rounded-2xl border border-gray-200 dark:border-[#2A2A36] bg-gradient-to-br from-[#FF2B66]/5 to-transparent dark:from-[#FF2B66]/10 dark:to-transparent p-5">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="h-8 w-8 rounded-lg bg-[#FF2B66] text-white flex items-center justify-center">
-            <Sparkles size={16} />
-          </div>
-          <h3 className="font-bold text-gray-900 dark:text-white">EventSphere Assistant</h3>
-        </div>
-        <p className="text-sm text-gray-500 dark:text-[#9CA3AF] mb-3">How can I help you?</p>
-        <div className="flex flex-wrap gap-2 mb-3">
-          <span className="rounded-full border border-gray-200 dark:border-[#2A2A36] px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-[#9CA3AF]">Find New Clients</span>
-          <span className="rounded-full border border-gray-200 dark:border-[#2A2A36] px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-[#9CA3AF]">Create Event</span>
-        </div>
-        <div className="flex items-center gap-2 rounded-xl bg-white dark:bg-[#181820] border border-gray-200 dark:border-[#2A2A36] px-3.5 py-2.5">
-          <input placeholder="Ask something..."
-            className="w-full bg-transparent text-sm outline-none placeholder:text-gray-400 dark:placeholder:text-[#6B7280] text-gray-900 dark:text-white" />
-          <button className="text-[#FF2B66]" title="Send">
-            <Send size={16} />
-          </button>
-        </div>
       </section>
     </aside>
   )

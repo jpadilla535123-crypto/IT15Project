@@ -19,7 +19,7 @@ export default function DashStats({ data }) {
   const { events, leads, venues } = data
 
   const todayCount = events.filter(e => isToday(e.StartDate)).length
-  const pending = leads.filter(l => l.Status === 'New')
+  const pending = leads.filter(l => l.Status === 'Pending' || l.Status === 'New')
   const oldest = pending.length ? Math.max(...pending.map(p => daysAgo(p.CreatedDate))) : 0
 
   const wkStart = startOfWeekMonday(new Date())

@@ -24,7 +24,7 @@ public class Lead : BaseEntity
     [Display(Name = "Estimated Budget"), DataType(DataType.Currency)]
     public decimal EstimatedBudget { get; set; }
 
-    public string Status { get; set; } = "New";
+    public string Status { get; set; } = "Pending";
 
     [DataType(DataType.MultilineText)]
     public string? Notes { get; set; }
