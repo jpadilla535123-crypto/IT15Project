@@ -240,7 +240,9 @@ public class PaymentsController : ControllerBase
                 return BadRequest(new { message = "PayMongo could not create the checkout session.", detail = TrimJson(body) });
 
             using var doc = JsonDocument.Parse(body);
-            var data = doc.RootElement.GetProperty("data");
+            if (!doc.RootElement.TryGetProperty("data", out var data))
+                return BadRequest(new { message = "PayMongo returned an unexpected response.", detail = TrimJson(body) });
+
             return Ok(new
             {
                 checkoutUrl = data.GetProperty("checkout_url").GetString(),
