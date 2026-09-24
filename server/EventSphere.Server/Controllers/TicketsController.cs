@@ -89,6 +89,7 @@ public class TicketsController : ControllerBase
             Email = normalized,
             Phone = request.Phone,
             EventId = evt.Id,
+            Client = client,
             PaymentMethod = request.PaymentMethod,
             ReferenceNumber = request.ReferenceNumber?.Trim(),
             PayerName = request.PayerName?.Trim(),
