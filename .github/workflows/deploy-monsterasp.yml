@@ -89,7 +89,7 @@ jobs:
         shell: bash
         run: |
           printf '%s' '<!DOCTYPE html><html><body>Server updating - please wait.</body></html>' > app_offline.htm
-          curl -sS --connect-timeout 30 --max-time 60 \
+          curl -sS --retry 4 --retry-delay 5 --retry-all-errors --connect-timeout 30 --max-time 120 \
             --user "${{ secrets.FTP_LOGIN }}:${{ secrets.FTP_PASSWORD }}" \
             -T app_offline.htm \
             "ftp://${{ secrets.FTP_HOST }}/wwwroot/app_offline.htm"
@@ -114,7 +114,7 @@ jobs:
       - name: Bring app back online
         shell: bash
         run: |
-          curl -sS --connect-timeout 30 --max-time 60 -o /dev/null \
+          curl -sS --retry 4 --retry-delay 5 --retry-all-errors --connect-timeout 30 --max-time 120 -o /dev/null \
             --user "${{ secrets.FTP_LOGIN }}:${{ secrets.FTP_PASSWORD }}" \
             "ftp://${{ secrets.FTP_HOST }}/" \
             --quote "CWD /wwwroot" \
