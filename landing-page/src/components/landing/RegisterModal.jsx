@@ -21,10 +21,19 @@ const PAY_METHODS = [
   { key: 'Cash', icon: Wallet },
 ]
 
+/* numeric ticket price from either the live API event (priceRaw) or a
+   display string like "$149" — never NaN. */
+const amountFor = e => {
+  const raw = Number(e?.priceRaw ?? e?.price)
+  if (Number.isFinite(raw) && raw > 0) return raw
+  const parsed = parseFloat(String(e?.price || '').replace(/[^0-9.]/g, ''))
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
 export default function RegisterModal({ event, onClose, onSuccess }) {
   const [step, setStep] = useState(STEPS.details)
   const [form, setForm] = useState({ name: '', email: '', phone: '', address: '' })
-  const [pay, setPay] = useState({ method: 'GCash', reference: '', payerName: '', file: null, preview: '' })
+  const [pay, setPay] = useState({ method: 'GCash', file: null, preview: '' })
   const [errors, setErrors] = useState({})
   const [paying, setPaying] = useState(false)
   const [payError, setPayError] = useState('')
@@ -38,7 +47,7 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
     if (event) {
       setStep(STEPS.details)
       setForm({ name: '', email: '', phone: '', address: '' })
-      setPay({ method: 'GCash', reference: '', payerName: '', file: null, preview: '' })
+      setPay({ method: 'GCash', file: null, preview: '' })
       setErrors({})
       setPayError('')
       setResult(null)
@@ -61,7 +70,6 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
         if (cancelled) return
         if (res?.paid) {
           setOnline(o => ({ ...o, paid: true, checking: false }))
-          setPay(p => ({ ...p, reference: p.reference || `PM-${online.sessionId.slice(-6).toUpperCase()}` }))
         } else {
           setOnline(o => ({ ...o, checking: true }))
         }
@@ -80,8 +88,8 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
   function startOnlinePayment() {
     setOnline(o => ({ ...o, loading: true, error: '' }))
     api.post('/api/tickets/public/paymongo-checkout', {
-      eventId: event.id,
-      amount: Number(event.priceRaw || event.price || 0),
+      eventId: event.id || 0,
+      amount: amountFor(event),
       description: `Ticket to ${event.title}`,
     }).then(res => {
       setOnline(o => ({ ...o, loading: false, url: res.checkoutUrl || '', sessionId: res.sessionId || '' }))
@@ -94,30 +102,13 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
 
   /* the QR payload is a demo string — a real deployment would encode the
      organizer GCash number so attendees can scan-and-pay directly. */
-  const qrPayload = `PAY GCash (DEMO)\nAccount: ${GCASH_NUMBER}\nEvent: ${event.title}\nAmount: ${formatCurrency(event.priceRaw || event.price || 0)}\nRef: ${reference}`
+  const qrPayload = `PAY GCash (DEMO)\nAccount: ${GCASH_NUMBER}\nEvent: ${event.title}\nAmount: ${formatCurrency(amountFor(event))}\nRef: ${reference}`
   const qrImage = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=16&color=fff&bgcolor=0b0b0e&data=${encodeURIComponent(qrPayload)}`
 
   function validateDetails() {
     const e = {}
     if (!form.name.trim()) e.name = 'Please enter your full name'
     if (!/^\S+@\S+\.\S+$/.test(form.email)) e.email = 'Enter a valid email address'
-    if (!pay.reference.trim()) e.reference = 'Enter your payment reference number'
-    if (!pay.payerName.trim()) e.payerName = 'Enter the name on your payment'
-    setErrors(e)
-    return Object.keys(e).length === 0
-  }
-
-  function validatePayment() {
-    const e = {}
-    if (!pay.reference.trim()) e.reference = 'Enter your payment reference number'
-    if (!pay.payerName.trim()) e.payerName = 'Enter the name on your payment'
-    setErrors(e)
-    return Object.keys(e).length === 0
-  }
-
-  function validateReview() {
-    const e = {}
-    if (!pay.file) e.file = 'Please upload your payment screenshot — this is required before you submit.'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -127,7 +118,14 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
   }
 
   function nextFromPayment() {
-    if (validatePayment()) setStep(STEPS.review)
+    setStep(STEPS.review)
+  }
+
+  function validateReview() {
+    const e = {}
+    if (!pay.file) e.file = 'Please upload your payment screenshot — this is required before you submit.'
+    setErrors(e)
+    return Object.keys(e).length === 0
   }
 
   function pickFile(f) {
@@ -138,6 +136,10 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
 
   async function submitRegistration() {
     if (!validateReview()) return
+    if (!event.id) {
+      setPayError('This showcase event is not open for online registration — pick it under "Get A Ticket".')
+      return
+    }
     setPaying(true)
     setPayError('')
     try {
@@ -147,9 +149,7 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
       fd.append('phone', form.phone || '')
       fd.append('eventId', String(event.id))
       fd.append('paymentMethod', pay.method)
-      fd.append('referenceNumber', pay.reference.trim())
-      fd.append('payerName', pay.payerName.trim())
-      fd.append('amount', String(event.priceRaw || event.price || 0))
+      fd.append('amount', String(amountFor(event)))
       if (pay.file) fd.append('evidence', pay.file)
 
       const res = await api.post('/api/tickets/public/register', fd)
@@ -194,7 +194,7 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
         <div className="mb-5 p-4 rounded-xl bg-white/[0.04] border border-white/10 space-y-2">
           <div className="flex items-center justify-between gap-4">
             <h3 className="text-white font-semibold text-[15px] leading-snug">{event.title}</h3>
-            <span className="text-white font-bold shrink-0">{formatCurrency(event.priceRaw || event.price || 0)}</span>
+            <span className="text-white font-bold shrink-0">{formatCurrency(amountFor(event))}</span>
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-[#9CA3AF]">
             <span className="flex items-center gap-1.5"><Calendar size={13} className="text-gray-500" /> {event.date}</span>
@@ -230,13 +230,7 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
                 <span className="text-[#9CA3AF]">Payment method</span><span className="text-white">{pay.method}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-[#9CA3AF]">Reference no.</span><span className="text-white">{pay.reference}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-[#9CA3AF]">Payer name</span><span className="text-white">{pay.payerName}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-[#9CA3AF]">Amount</span><span className="text-emerald-400 font-semibold">{formatCurrency(event.priceRaw || event.price || 0)}</span>
+                <span className="text-[#9CA3AF]">Amount</span><span className="text-emerald-400 font-semibold">{formatCurrency(amountFor(event))}</span>
               </div>
             </div>
 
@@ -273,28 +267,6 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
                   </div>
                 ))}
 
-                {/* payer name + reference on the details step (kept for a one-shot feel) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-semibold text-neutral-300 mb-2 block">Payer name <span className="text-neutral-500 font-normal">(on your payment)</span></label>
-                    <input value={pay.payerName} onChange={e => {
-                      setPay(p => ({ ...p, payerName: e.target.value }))
-                      if (errors.payerName) setErrors(errs => ({ ...errs, payerName: null }))
-                    }} placeholder="e.g. JUAN DELA CRUZ"
-                      className={`${inputCls} ${errors.payerName ? 'border-[#FF2B66]' : 'border-neutral-800 focus:border-[#FF2B66]'}`} />
-                    {errors.payerName && <p className="text-[#FF2B66] text-xs mt-1.5">{errors.payerName}</p>}
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-neutral-300 mb-2 block">Payment reference</label>
-                    <input value={pay.reference} onChange={e => {
-                      setPay(p => ({ ...p, reference: e.target.value }))
-                      if (errors.reference) setErrors(errs => ({ ...errs, reference: null }))
-                    }} placeholder="e.g. 8823-4109-2211"
-                      className={`${inputCls} ${errors.reference ? 'border-[#FF2B66]' : 'border-neutral-800 focus:border-[#FF2B66]'}`} />
-                    {errors.reference && <p className="text-[#FF2B66] text-xs mt-1.5">{errors.reference}</p>}
-                  </div>
-                </div>
-
                 <button onClick={nextFromDetails} className="w-full bg-[#FF2B66] hover:bg-[#E0245A] text-white font-semibold py-3 rounded-xl transition-colors text-sm flex items-center justify-center gap-2">
                   Continue to payment <ArrowRight size={15} />
                 </button>
@@ -303,7 +275,7 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
               <div className="space-y-4">
                 <div className="p-3.5 rounded-xl bg-white/[0.04] border border-white/10">
                   <p className="text-xs text-neutral-400 leading-relaxed">
-                    Pay <span className="text-white font-semibold">{formatCurrency(event.priceRaw || event.price || 0)}</span> with <span className="text-white font-semibold">{pay.method}</span> — either online via PayMongo, or by scanning the GCash QR.
+                    Pay <span className="text-white font-semibold">{formatCurrency(amountFor(event))}</span> with <span className="text-white font-semibold">{pay.method}</span> — either online via PayMongo, or by scanning the GCash QR.
                   </p>
                 </div>
 
@@ -362,20 +334,6 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
                   </div>
                 </div>
 
-                {/* reference number */}
-                <div>
-                  <label className="text-xs font-semibold text-neutral-300 mb-2 block">
-                    Payment reference number <span className="text-neutral-500 font-normal">(GCash ref. no., bank ref. no., etc.)</span>
-                  </label>
-                  <input value={pay.reference} onChange={e => {
-                    setPay(p => ({ ...p, reference: e.target.value }))
-                    if (errors.reference) setErrors(errs => ({ ...errs, reference: null }))
-                  }}
-                    placeholder="e.g. 8823-4109-2211"
-                    className={`${inputCls} ${errors.reference ? 'border-[#FF2B66]' : 'border-neutral-800 focus:border-[#FF2B66]'}`} />
-                  {errors.reference && <p className="text-[#FF2B66] text-xs mt-1.5">{errors.reference}</p>}
-                </div>
-
                 <div className="flex gap-3 pt-1">
                   <button onClick={back}
                     className="border border-neutral-800 hover:bg-white/5 text-neutral-300 font-semibold py-3 rounded-xl transition-colors text-sm px-5 flex items-center gap-2">
@@ -400,10 +358,9 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
                     <div className="flex justify-between gap-3"><span className="text-neutral-500">Attendee</span><span className="text-white text-right">{form.name}</span></div>
                     <div className="flex justify-between gap-3"><span className="text-neutral-500">Email</span><span className="text-white text-right">{form.email}</span></div>
                     <div className="flex justify-between gap-3"><span className="text-neutral-500">Payment method</span><span className="text-white text-right">{pay.method}</span></div>
-                    <div className="flex justify-between gap-3"><span className="text-neutral-500">Reference</span><span className="text-white text-right">{pay.reference}</span></div>
                     <div className="flex justify-between gap-3 border-t border-neutral-800/70 pt-2.5">
                       <span className="text-neutral-400 font-semibold">Amount</span>
-                      <span className="text-emerald-400 font-bold">{formatCurrency(event.priceRaw || event.price || 0)}</span>
+                      <span className="text-emerald-400 font-bold">{formatCurrency(amountFor(event))}</span>
                     </div>
                   </div>
                 </div>
@@ -472,7 +429,7 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
             <img src={qrImage} alt="GCash payment QR" className="w-56 h-56 rounded-xl" />
           </div>
           <div className="mt-5 space-y-1.5 text-center">
-            <p className="text-xs text-neutral-400">Scan with your GCash app to pay <span className="text-white font-bold">{formatCurrency(event.priceRaw || event.price || 0)}</span> to</p>
+            <p className="text-xs text-neutral-400">Scan with your GCash app to pay <span className="text-white font-bold">{formatCurrency(amountFor(event))}</span> to</p>
             <p className="text-lg font-bold text-white tracking-wide">{GCASH_NUMBER}</p>
             <p className="text-[11px] text-neutral-500">Reference: <span className="text-neutral-300">{reference}</span> · {event.title}</p>
           </div>

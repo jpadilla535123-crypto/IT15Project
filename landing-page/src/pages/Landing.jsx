@@ -441,7 +441,7 @@ export default function Landing({ user }) {
                   </div>
                   <div className="flex items-center justify-between pt-2 border-t border-[#2A2A36]">
                     <span className="text-white font-bold text-lg">{e.price}</span>
-                    <button onClick={() => setRegisterEvent(e)} className="btn-primary !px-5 !py-2 text-sm">Register</button>
+                    <button onClick={openTickets} className="btn-primary !px-5 !py-2 text-sm">Register</button>
                   </div>
                 </div>
               </div>
