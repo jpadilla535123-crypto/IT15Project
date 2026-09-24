@@ -49,8 +49,6 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
     }
   }, [event])
 
-  if (!event) return null
-
   const back = () => setStep(s => Math.max(0, s - 1))
 
   /* poll the PayMongo checkout session until it's marked paid */
@@ -76,6 +74,8 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
     return () => { cancelled = true; clearInterval(t) }
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [online.sessionId])
+
+  if (!event) return null
 
   function startOnlinePayment() {
     setOnline(o => ({ ...o, loading: true, error: '' }))

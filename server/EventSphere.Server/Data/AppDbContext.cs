@@ -9,6 +9,7 @@ public class AppDbContext : DbContext
 
     public DbSet<Client> Clients => Set<Client>();
     public DbSet<Lead> Leads => Set<Lead>();
+    public DbSet<EventRequest> EventRequests => Set<EventRequest>();
     public DbSet<Event> Events => Set<Event>();
     public DbSet<Venue> Venues => Set<Venue>();
     public DbSet<Employee> Employees => Set<Employee>();
@@ -49,6 +50,16 @@ public class AppDbContext : DbContext
             l.Property(x => x.CompanyName).HasMaxLength(200);
             l.Property(x => x.Status).HasMaxLength(32);
             l.Property(x => x.EstimatedBudget).HasPrecision(18, 2);
+        });
+
+        modelBuilder.Entity<EventRequest>(r =>
+        {
+            r.Property(x => x.ContactName).HasMaxLength(200);
+            r.Property(x => x.Email).HasMaxLength(200);
+            r.Property(x => x.Phone).HasMaxLength(32);
+            r.Property(x => x.Source).HasMaxLength(32);
+            r.Property(x => x.EventType).HasMaxLength(64);
+            r.Property(x => x.Status).HasMaxLength(32);
         });
 
         modelBuilder.Entity<Venue>(v =>

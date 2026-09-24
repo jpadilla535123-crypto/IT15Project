@@ -90,19 +90,16 @@ export function ContactUsSection({ onBrowseVenues }) {
     ev.preventDefault()
     if (!validate()) return
     setStatus('sending')
-    const parts = [
-      form.message.trim(),
-      form.date && `Target date: ${form.date}`,
-      form.guests && `Guests: ${form.guests}`,
-    ].filter(Boolean).join(' | ')
 
-    api.post('/api/leads/public', {
+    api.post('/api/eventrequests/public', {
       name: form.name.trim(),
       email: form.email.trim(),
       phone: form.phone.trim(),
       source: 'Website',
       eventType,
-      notes: parts,
+      message: form.message.trim(),
+      targetDate: form.date || null,
+      guests: form.guests ? Number(form.guests) : null,
     })
       .then(() => setStatus('sent'))
       .catch(err => { setStatus('idle'); setErrors({ general: err.message }) })

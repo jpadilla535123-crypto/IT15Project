@@ -27,9 +27,9 @@ function sourceLabel(source) {
 }
 
 /* Floating "Requests" tray used inside Event Management (Admin/Manager POV).
-   Stacked requests come from the landing page (services + contact us) and
-   arrive as leads via POST /api/leads/public. From here staff can confirm,
-   message (email), call or cancel each request. */
+   Requests come from the landing page's "Request a proposal" form (Contact Us)
+   via POST /api/eventrequests/public and are stored as EventRequest rows. From
+   here staff can confirm, message (email), call or cancel each request. */
 export default function RequestList({ hidden = false }) {
   const { data, reload } = useData()
   const [open, setOpen] = useState(false)
@@ -40,7 +40,7 @@ export default function RequestList({ hidden = false }) {
   const [cancelNote, setCancelNote] = useState('')
   const [confirmCancel, setConfirmCancel] = useState(false)
 
-  const requests = (data.leads || []).slice().sort((a, b) =>
+  const requests = (data.requests || []).slice().sort((a, b) =>
     (b.CreatedDate?.getTime?.() ?? 0) - (a.CreatedDate?.getTime?.() ?? 0))
   const openCount = requests.filter(r => r.Status === 'Pending' || r.Status === 'New' || r.Status === 'Contacted').length
   const selected = requests.find(r => r.Id === selectedId) || null
@@ -71,12 +71,12 @@ export default function RequestList({ hidden = false }) {
   }
 
   function confirmRequest() {
-    runAction(() => api.post(`/api/leads/${selectedId}/confirm`))
+    runAction(() => api.post(`/api/eventrequests/${selectedId}/confirm`))
       .then(() => setActionMsg({ ok: true, text: 'Request confirmed. Status updated to Confirmed Appointment.' }))
   }
 
   function cancelRequest() {
-    runAction(() => api.post(`/api/leads/${selectedId}/cancel`, { note: cancelNote || null }))
+    runAction(() => api.post(`/api/eventrequests/${selectedId}/cancel`, { note: cancelNote || null }))
       .then(() => setActionMsg({ ok: true, text: 'Request cancelled.' }))
   }
 
@@ -85,7 +85,7 @@ export default function RequestList({ hidden = false }) {
     setSending(true)
     setActionMsg(null)
     try {
-      const res = await api.post(`/api/leads/${selectedId}/message`, { subject, body })
+      const res = await api.post(`/api/eventrequests/${selectedId}/message`, { subject, body })
       if (res.sent) {
         setCompose(false)
         setActionMsg({ ok: true, text: `Email sent to ${res.to}.` })
@@ -156,7 +156,7 @@ export default function RequestList({ hidden = false }) {
             <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
               {!selected && requests.length === 0 && (
                 <p className="text-sm text-gray-400 dark:text-[#6B7280] text-center py-12">
-                  No requests yet. Requests from "Contact Us" and the services pages of your site will appear here.
+                  No requests yet. Requests from the "Contact Us" form on your site will appear here.
                 </p>
               )}
 

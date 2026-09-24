@@ -140,6 +140,16 @@ evidence) survives every deploy.
 | `PROD_CORS_ORIGIN` | Real frontend origin: `https://it-15-project.vercel.app` |
 | `PROD_JWT_KEY` | Long random 32-byte secret (e.g. `openssl rand -base64 48`) |
 | `PROD_PAYMONGO_SECRET` | (optional) PayMongo secret key |
+| `PROD_SMTP_HOST` | SMTP server for auto-reply emails (e.g. `smtp.gmail.com`) |
+| `PROD_SMTP_PORT` | SMTP port (default `587`) |
+| `PROD_SMTP_USER` | SMTP login (full email address) |
+| `PROD_SMTP_PASSWORD` | SMTP password / Gmail **App Password** (2FA accounts need an app password, not the main password) |
+| `PROD_SMTP_FROM` | "From" address that recipients see (use the SMTP account's own address to avoid SPF rejection) |
+
+> Until the `PROD_SMTP_*` secrets are set, production has `Smtp.Host` empty so
+> `IsConfigured` is false: request submissions and newsletter signups still work,
+> the auto-reply and ticket-confirmation emails are simply skipped, and the
+> dashboard "Message" action falls back to opening the staff member's mail app.
 
 ### Vercel (frontend)
 1. Import the repo; set **Root Directory** to `landing-page`.

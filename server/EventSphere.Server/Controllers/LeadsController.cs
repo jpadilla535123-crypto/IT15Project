@@ -68,9 +68,10 @@ public class LeadsController : ControllerBase
     }
 
     /* Public, unauthenticated entry point used by the native site's
-       newsletter ("Stay in the loop"), Contact Us and the services pages.
-       Verifies the mailbox actually exists before saving, then creates a
-       'Pending' lead so it shows up in Lead Management. */
+       newsletter ("Stay in the loop"). Event inquiries from Contact Us go to
+       /api/eventrequests/public instead (EventRequest), so Lead Management
+       holds only newsletter subscribers. Verifies the mailbox actually exists
+       before saving, then creates a 'Pending' lead and sends an auto-reply. */
     public class PublicLeadRequest
     {
         [Required, EmailAddress]
@@ -130,6 +131,26 @@ public class LeadsController : ControllerBase
 
         _db.Leads.Add(lead);
         await _db.SaveChangesAsync();
+
+        /* "Stay in the loop" subscribers get an instant auto-reply. A missing
+           SMTP config must not fail the subscription — the lead is already saved. */
+        if (string.Equals(lead.Source, "Newsletter", StringComparison.OrdinalIgnoreCase) && _email.IsConfigured)
+        {
+            try
+            {
+                var subject = "Welcome to the EventSphere list!";
+                var body =
+$@"<p>Hi {lead.ContactName ?? "there"},</p>
+<p>Thanks for staying in the loop with <b>EventSphere</b>.</p>
+<p>You'll now get first dibs on our upcoming events, venue deals, and early-bird ticket offers — nothing spammy, and you can unsubscribe anytime.</p>
+<p>See you at the next one,<br/>The EventSphere Team</p>";
+                await _email.SendAsync(email, subject, body);
+            }
+            catch
+            {
+                /* subscribe still succeeds even if the auto-reply fails. */
+            }
+        }
 
         return CreatedAtAction(nameof(GetById), new { id = lead.Id }, lead);
     }

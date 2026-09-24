@@ -40,13 +40,23 @@ jobs:
           ORIGIN: ${{ secrets.PROD_CORS_ORIGIN }}
           JWT: ${{ secrets.PROD_JWT_KEY }}
           PM: ${{ secrets.PROD_PAYMONGO_SECRET }}
+          SMTP_HOST: ${{ secrets.PROD_SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.PROD_SMTP_PORT }}
+          SMTP_USER: ${{ secrets.PROD_SMTP_USER }}
+          SMTP_PASS: ${{ secrets.PROD_SMTP_PASSWORD }}
+          SMTP_FROM: ${{ secrets.PROD_SMTP_FROM }}
         run: |
           jq -n \
             --arg db "$DB" \
             --arg origin "$ORIGIN" \
             --arg jwt "$JWT" \
             --arg pm "$PM" \
-            '{ConnectionStrings:{DefaultConnection:$db},Cors:{AllowedOrigins:[$origin]},Jwt:{Issuer:"EventSphere.Api",Audience:"EventSphere.Client",Key:$jwt,ExpiryMinutes:480},PayMongo:{BaseUrl:"https://api.paymongo.com/v1",SecretKey:$pm},Logging:{LogLevel:{Default:"Information","Microsoft.AspNetCore":"Warning"}},AllowedHosts:"*"}' \
+            --arg smtpHost "$SMTP_HOST" \
+            --arg smtpPort "$SMTP_PORT" \
+            --arg smtpUser "$SMTP_USER" \
+            --arg smtpPass "$SMTP_PASS" \
+            --arg smtpFrom "$SMTP_FROM" \
+            '{ConnectionStrings:{DefaultConnection:$db},Cors:{AllowedOrigins:[$origin]},Jwt:{Issuer:"EventSphere.Api",Audience:"EventSphere.Client",Key:$jwt,ExpiryMinutes:480},PayMongo:{BaseUrl:"https://api.paymongo.com/v1",SecretKey:$pm},Smtp:{Host:$smtpHost,Port:(((($smtpPort // "") | tonumber?) // 587)),UseSsl:true,Username:$smtpUser,Password:$smtpPass,From:$smtpFrom},Logging:{LogLevel:{Default:"Information","Microsoft.AspNetCore":"Warning"}},AllowedHosts:"*"}' \
             > publish/appsettings.Production.json
           echo "appsettings.Production.json generated"
 

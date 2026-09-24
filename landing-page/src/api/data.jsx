@@ -22,7 +22,7 @@ const CLIENT_SOURCES = ['Referral', 'Walk-in', 'Website', 'LinkedIn', 'Facebook'
 const SUP_CITIES = ['Quezon City', 'Makati', 'Taguig', 'Pasig', 'Manila', 'Parañaque']
 const PO_STATUS = { Booked: 'Ordered', Confirmed: 'Shipped', Completed: 'Delivered' }
 
-const EMPTY = { clients: [], employees: [], venues: [], events: [], leads: [], suppliers: [], purchaseOrders: [], assignments: {}, assignmentRows: [], invoices: [], payments: [], supplierPayments: [], registrations: [] }
+const EMPTY = { clients: [], employees: [], venues: [], events: [], leads: [], requests: [], suppliers: [], purchaseOrders: [], assignments: {}, assignmentRows: [], invoices: [], payments: [], supplierPayments: [], registrations: [] }
 
 function unwrap(res) {
   if (res && Array.isArray(res.items)) return res.items
@@ -88,6 +88,22 @@ function mapLead(l) {
     Status: l.status,
     Notes: l.notes,
     CreatedDate: toDate(l.createdDate),
+  }
+}
+
+function mapEventRequest(r) {
+  return {
+    Id: r.id,
+    ContactName: r.contactName,
+    Email: r.email,
+    Phone: r.phone,
+    Source: r.source || 'Website',
+    EventType: r.eventType,
+    TargetDate: r.targetDate ? toDate(r.targetDate) : null,
+    Guests: r.guests,
+    Status: r.status,
+    Notes: r.notes,
+    CreatedDate: toDate(r.createdDate),
   }
 }
 
@@ -251,6 +267,7 @@ export function DataProvider({ children }) {
         api.get('/api/events', { pageSize: 100 }),
         api.get('/api/clients', { pageSize: 100 }),
         api.get('/api/leads', { pageSize: 100 }),
+        api.get('/api/eventrequests', { pageSize: 100 }),
         api.get('/api/venues', { pageSize: 100 }),
         api.get('/api/employees', { pageSize: 100 }),
         api.get('/api/suppliers', { pageSize: 100 }),
@@ -266,7 +283,7 @@ export function DataProvider({ children }) {
         fetches.push(api.get('/api/supplierpayments', { pageSize: 100 }))
       }
 
-      const [events, clients, leads, venues, employees, suppliers, eventSuppliers, assignments, tickets, invoices = { items: [] }, payments = { items: [] }, supplierPayments = { items: [] }] = await Promise.all(fetches)
+      const [events, clients, leads, eventRequests, venues, employees, suppliers, eventSuppliers, assignments, tickets, invoices = { items: [] }, payments = { items: [] }, supplierPayments = { items: [] }] = await Promise.all(fetches)
 
       const eventsRaw = unwrap(events)
       const venuesRaw = unwrap(venues).map(mapVenue)
@@ -281,6 +298,7 @@ export function DataProvider({ children }) {
         venues: venuesRaw,
         events: mappedEvents,
         leads: unwrap(leads).map(mapLead),
+        requests: unwrap(eventRequests).map(mapEventRequest),
         suppliers: unwrap(suppliers).map(mapSupplier),
         purchaseOrders: unwrap(eventSuppliers).map(mapPurchaseOrder),
         assignments: buildAssignments(unwrap(assignments), mappedEvents),
