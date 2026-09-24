@@ -193,6 +193,9 @@ function mapSupplier(s) {
     Status: (s.rating || 0) >= 4 ? 'Active' : 'Review',
     OnTimeRate: 85 + ((s.id * 7) % 14),
     Notes: s.notes || '',
+    PackageName: s.packageName || '',
+    PackageInclusions: s.packageInclusions || '',
+    PackagePrice: Number(s.packagePrice) || 0,
   }
 }
 

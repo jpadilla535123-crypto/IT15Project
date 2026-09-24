@@ -23,5 +23,11 @@ public class Supplier : BaseEntity
 
     public string? Notes { get; set; }
 
+    public string? PackageName { get; set; }
+
+    public string? PackageInclusions { get; set; }
+
+    public decimal PackagePrice { get; set; }
+
     public ICollection<EventSupplier> EventSuppliers { get; set; } = new List<EventSupplier>();
 }

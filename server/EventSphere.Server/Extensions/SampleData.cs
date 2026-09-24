@@ -11,6 +11,8 @@ public static class SampleData
 
     public static void Seed(AppDbContext db)
     {
+        ApplySupplierPackages(db);
+
         if (db.Clients.Any() && db.Users.Any())
         {
             SeedStaffHR(db);
@@ -57,12 +59,12 @@ public static class SampleData
 
         var suppliers = new List<Supplier>
         {
-            new Supplier { Name = "Taste & Catering PH", Category = "Catering", ContactPerson = "Chef Ramon", Email = "catering@tasteph.com", Phone = "+63 933 555 0401", Rating = 5, Notes = "Full-service catering, in-house kitchen." },
-            new Supplier { Name = "Bloom & Petal Florals", Category = "Decor", ContactPerson = "Liza Flores", Email = "liza@bloompetal.ph", Phone = "+63 934 555 0402", Rating = 4, Notes = "Floral arrangements and table styling." },
-            new Supplier { Name = "StageSound Solutions", Category = "Audio-Visual", ContactPerson = "Ben Ocampo", Email = "ben@stagesound.com", Phone = "+63 935 555 0403", Rating = 5, Notes = "Lighting, sound systems, LED walls." },
-            new Supplier { Name = "Shutter Story Photography", Category = "Photography", ContactPerson = "Mia Navarro", Email = "hello@shutterstory.ph", Phone = "+63 936 555 0404", Rating = 4, Notes = "Photography and videography packages." },
-            new Supplier { Name = "GrooveLine Entertainment", Category = "Entertainment", ContactPerson = "DJ Marco", Email = "book@grooveline.ph", Phone = "+63 937 555 0405", Rating = 3, Notes = "Live bands, DJs, and emcees." },
-            new Supplier { Name = "AceRide Transport", Category = "Transport", ContactPerson = "Jun Acebedo", Email = "rides@aceride.com", Phone = "+63 938 555 0406", Rating = 4, Notes = "Shuttle vans and luxury coaches." },
+            new Supplier { Name = "Taste & Catering PH", Category = "Catering", ContactPerson = "Chef Ramon", Email = "catering@tasteph.com", Phone = "+63 933 555 0401", Rating = 5, Notes = "Full-service catering, in-house kitchen.", PackageName = "Royal Feast Package", PackagePrice = 45000m, PackageInclusions = "Buffet for 100 pax\nAppetizers & dessert bar\nWaiter service & setup\nTable linens & centerpieces\nFree tasting session" },
+            new Supplier { Name = "Bloom & Petal Florals", Category = "Decor", ContactPerson = "Liza Flores", Email = "liza@bloompetal.ph", Phone = "+63 934 555 0402", Rating = 4, Notes = "Floral arrangements and table styling.", PackageName = "Garden Elegance", PackagePrice = 18500m, PackageInclusions = "Bridal bouquet & 4 entourage bouquets\n12 centerpiece arrangements\nArbor & aisle decor\nPhoto backdrop flowers" },
+            new Supplier { Name = "StageSound Solutions", Category = "Audio-Visual", ContactPerson = "Ben Ocampo", Email = "ben@stagesound.com", Phone = "+63 935 555 0403", Rating = 5, Notes = "Lighting, sound systems, LED walls.", PackageName = "Full Production Package", PackagePrice = 68000m, PackageInclusions = "Sound system for 300 pax\nStage lighting & DMX controller\nLED wall (4x2m)\n2 wireless mics + technician" },
+            new Supplier { Name = "Shutter Story Photography", Category = "Photography", ContactPerson = "Mia Navarro", Email = "hello@shutterstory.ph", Phone = "+63 936 555 0404", Rating = 4, Notes = "Photography and videography packages.", PackageName = "Storybook Package", PackagePrice = 22000m, PackageInclusions = "8 hours coverage\n2 photographers + 1 videographer\nSame-day photo edits\nOnline gallery + USB copy" },
+            new Supplier { Name = "GrooveLine Entertainment", Category = "Entertainment", ContactPerson = "DJ Marco", Email = "book@grooveline.ph", Phone = "+63 937 555 0405", Rating = 3, Notes = "Live bands, DJs, and emcees.", PackageName = "Party Starter Package", PackagePrice = 15000m, PackageInclusions = "DJ for 4 hours\nLED booth set-up\nEmcee & program hosting\nSong requests via app" },
+            new Supplier { Name = "AceRide Transport", Category = "Transport", ContactPerson = "Jun Acebedo", Email = "rides@aceride.com", Phone = "+63 938 555 0406", Rating = 4, Notes = "Shuttle vans and luxury coaches.", PackageName = "Guest Shuttle Package", PackagePrice = 25000m, PackageInclusions = "2 shuttle vans (12 seats each)\n8 hours daily use\nCharter services for 40 pax\nOn-call support line" },
         };
 
         db.AddRange(clients);
@@ -378,5 +380,35 @@ public static class SampleData
         }
 
         db.SaveChanges();
+    }
+
+    private static void ApplySupplierPackages(AppDbContext db)
+    {
+        var packages = new Dictionary<string, (string Name, decimal Price, string Inclusions)>
+        {
+            ["Taste & Catering PH"] = ("Royal Feast Package", 45000m, "Buffet for 100 pax\nAppetizers & dessert bar\nWaiter service & setup\nTable linens & centerpieces\nFree tasting session"),
+            ["Bloom & Petal Florals"] = ("Garden Elegance", 18500m, "Bridal bouquet & 4 entourage bouquets\n12 centerpiece arrangements\nArbor & aisle decor\nPhoto backdrop flowers"),
+            ["StageSound Solutions"] = ("Full Production Package", 68000m, "Sound system for 300 pax\nStage lighting & DMX controller\nLED wall (4x2m)\n2 wireless mics + technician"),
+            ["Shutter Story Photography"] = ("Storybook Package", 22000m, "8 hours coverage\n2 photographers + 1 videographer\nSame-day photo edits\nOnline gallery + USB copy"),
+            ["GrooveLine Entertainment"] = ("Party Starter Package", 15000m, "DJ for 4 hours\nLED booth set-up\nEmcee & program hosting\nSong requests via app"),
+            ["AceRide Transport"] = ("Guest Shuttle Package", 25000m, "2 shuttle vans (12 seats each)\n8 hours daily use\nCharter services for 40 pax\nOn-call support line"),
+        };
+
+        var suppliers = db.Suppliers
+            .Where(s => s.PackageName == null || s.PackageName.Trim().Length == 0)
+            .ToList()
+            .Where(s => packages.ContainsKey(s.Name))
+            .ToList();
+
+        foreach (var s in suppliers)
+        {
+            var pkg = packages[s.Name];
+            s.PackageName = pkg.Name;
+            s.PackagePrice = pkg.Price;
+            s.PackageInclusions = pkg.Inclusions;
+        }
+
+        if (suppliers.Count > 0)
+            db.SaveChanges();
     }
 }

@@ -85,6 +85,9 @@ public class SuppliersController : ControllerBase
         existing.Phone = supplier.Phone;
         existing.Rating = supplier.Rating;
         existing.Notes = supplier.Notes;
+        existing.PackageName = supplier.PackageName;
+        existing.PackageInclusions = supplier.PackageInclusions;
+        existing.PackagePrice = supplier.PackagePrice;
         existing.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();

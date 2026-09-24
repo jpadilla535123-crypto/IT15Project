@@ -1,18 +1,23 @@
 import { useEffect, useState } from 'react'
 import {
   X, Calendar, MapPin, Check, Loader2, ArrowRight, ArrowLeft, Smartphone, Landmark, CreditCard, Wallet, ImagePlus, Lock,
+  QrCode, ExternalLink, ShieldCheck, CheckCircle2,
 } from 'lucide-react'
 import ModalShell from './ModalShell'
 import { api } from '../../api/client'
 import { formatCurrency, formatFullDate } from '../dashboard/format'
 import '../../pages/landingFx.css'
 
-const STEPS = { details: 0, payment: 1, confirm: 2 }
+const STEPS = { details: 0, payment: 1, review: 2, confirm: 3 }
+
+/* DEMO GCash number used in the QR popup.
+   TODO: replace with the real organizer GCash number before going live. */
+const GCASH_NUMBER = '0917 000 0000'
 
 const PAY_METHODS = [
-  { key: 'GCash', icon: Smartphone },
+  { key: 'GCash', icon: Smartphone, online: true },
   { key: 'Bank Transfer', icon: Landmark },
-  { key: 'Credit Card', icon: CreditCard },
+  { key: 'Credit Card', icon: CreditCard, online: true },
   { key: 'Cash', icon: Wallet },
 ]
 
@@ -25,6 +30,9 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
   const [payError, setPayError] = useState('')
   const [reference, setReference] = useState('')
   const [result, setResult] = useState(null)
+  const [payNowOpen, setPayNowOpen] = useState(false)
+  const [online, setOnline] = useState({ loading: false, url: '', sessionId: '', paid: false, checking: false, error: '' })
+  const [qrOpen, setQrOpen] = useState(false)
 
   useEffect(() => {
     if (event) {
@@ -35,6 +43,9 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
       setPayError('')
       setResult(null)
       setReference(`TKT-2026-${String(Math.floor(100000 + Math.random() * 900000))}`)
+      setOnline({ loading: false, url: '', sessionId: '', paid: false, checking: false, error: '' })
+      setPayNowOpen(false)
+      setQrOpen(false)
     }
   }, [event])
 
@@ -42,13 +53,56 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
 
   const back = () => setStep(s => Math.max(0, s - 1))
 
+  /* poll the PayMongo checkout session until it's marked paid */
+  useEffect(() => {
+    if (!online.sessionId || online.paid) return
+    let cancelled = false
+    const poll = async () => {
+      try {
+        const res = await api.get(`/api/tickets/public/paymongo-status/${online.sessionId}`)
+        if (cancelled) return
+        if (res?.paid) {
+          setOnline(o => ({ ...o, paid: true, checking: false }))
+          setPay(p => ({ ...p, reference: p.reference || `PM-${online.sessionId.slice(-6).toUpperCase()}` }))
+        } else {
+          setOnline(o => ({ ...o, checking: true }))
+        }
+      } catch {
+        if (!cancelled) setOnline(o => ({ ...o, error: 'Could not check payment status. Continue with the QR option or screenshot below.' }))
+      }
+    }
+    poll()
+    const t = setInterval(poll, 5000)
+    return () => { cancelled = true; clearInterval(t) }
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [online.sessionId])
+
+  function startOnlinePayment() {
+    setOnline(o => ({ ...o, loading: true, error: '' }))
+    api.post('/api/tickets/public/paymongo-checkout', {
+      eventId: event.id,
+      amount: Number(event.priceRaw || event.price || 0),
+      description: `Ticket to ${event.title}`,
+    }).then(res => {
+      setOnline(o => ({ ...o, loading: false, url: res.checkoutUrl || '', sessionId: res.sessionId || '' }))
+      setPayNowOpen(true)
+      if (res.checkoutUrl) window.open(res.checkoutUrl, '_blank', 'noopener,noreferrer')
+    }).catch(err => {
+      setOnline(o => ({ ...o, loading: false, error: err.message || 'Could not start an online checkout. Use the QR code option instead.' }))
+    })
+  }
+
+  /* the QR payload is a demo string — a real deployment would encode the
+     organizer GCash number so attendees can scan-and-pay directly. */
+  const qrPayload = `PAY GCash (DEMO)\nAccount: ${GCASH_NUMBER}\nEvent: ${event.title}\nAmount: ${formatCurrency(event.priceRaw || event.price || 0)}\nRef: ${reference}`
+  const qrImage = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=16&color=fff&bgcolor=0b0b0e&data=${encodeURIComponent(qrPayload)}`
+
   function validateDetails() {
     const e = {}
     if (!form.name.trim()) e.name = 'Please enter your full name'
     if (!/^\S+@\S+\.\S+$/.test(form.email)) e.email = 'Enter a valid email address'
-    if (!pay.reference || !pay.reference.trim()) e.reference = 'Enter your payment reference number'
-    if (!pay.payerName || !pay.payerName.trim()) e.payerName = 'Enter the name on your payment'
-    if (!pay.file) e.file = 'Upload a screenshot of your payment'
+    if (!pay.reference.trim()) e.reference = 'Enter your payment reference number'
+    if (!pay.payerName.trim()) e.payerName = 'Enter the name on your payment'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -57,13 +111,23 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
     const e = {}
     if (!pay.reference.trim()) e.reference = 'Enter your payment reference number'
     if (!pay.payerName.trim()) e.payerName = 'Enter the name on your payment'
-    if (!pay.file) e.file = 'Upload a screenshot of your payment'
+    setErrors(e)
+    return Object.keys(e).length === 0
+  }
+
+  function validateReview() {
+    const e = {}
+    if (!pay.file) e.file = 'Please upload your payment screenshot — this is required before you submit.'
     setErrors(e)
     return Object.keys(e).length === 0
   }
 
   function nextFromDetails() {
     if (validateDetails()) setStep(STEPS.payment)
+  }
+
+  function nextFromPayment() {
+    if (validatePayment()) setStep(STEPS.review)
   }
 
   function pickFile(f) {
@@ -73,7 +137,7 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
   }
 
   async function submitRegistration() {
-    if (!validatePayment()) return
+    if (!validateReview()) return
     setPaying(true)
     setPayError('')
     try {
@@ -130,7 +194,7 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
         <div className="mb-5 p-4 rounded-xl bg-white/[0.04] border border-white/10 space-y-2">
           <div className="flex items-center justify-between gap-4">
             <h3 className="text-white font-semibold text-[15px] leading-snug">{event.title}</h3>
-            <span className="text-white font-bold shrink-0">{formatCurrency(event.price)}</span>
+            <span className="text-white font-bold shrink-0">{formatCurrency(event.priceRaw || event.price || 0)}</span>
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-[#9CA3AF]">
             <span className="flex items-center gap-1.5"><Calendar size={13} className="text-gray-500" /> {event.date}</span>
@@ -138,8 +202,8 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
           </div>
         </div>
 
-        {step === STEPS.confirm ? (
-          /* ───── CONFIRMATION ───── */
+        {step === STEPS.confirm && result ? (
+          /* ───── CONFIRMATION / DONE ───── */
           <div className="text-center py-6">
             <div className="w-16 h-16 rounded-full bg-emerald-500/15 flex items-center justify-center mx-auto">
               <Check size={32} className="text-emerald-400" />
@@ -172,7 +236,7 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
                 <span className="text-[#9CA3AF]">Payer name</span><span className="text-white">{pay.payerName}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-[#9CA3AF]">Amount</span><span className="text-emerald-400 font-semibold">{formatCurrency(event.price)}</span>
+                <span className="text-[#9CA3AF]">Amount</span><span className="text-emerald-400 font-semibold">{formatCurrency(event.priceRaw || event.price || 0)}</span>
               </div>
             </div>
 
@@ -184,13 +248,13 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
           <>
             {/* step indicator */}
             <div className="flex flex-wrap items-center gap-x-2 gap-y-2 mb-5">
-              {['Your details', 'Payment', 'Confirmation'].map((label, i) => (
+              {['Your details', 'Payment', 'Review', 'Done'].map((label, i) => (
                 <div key={label} className="flex items-center gap-2">
                   <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[11px] font-bold ${step === i ? 'bg-[#FF2B66] text-white' : i < step ? 'bg-emerald-500/20 text-emerald-400' : 'bg-neutral-800 text-neutral-500'}`}>
                     {i < step ? <Check size={12} /> : i + 1}
                   </div>
                   <span className={`text-xs ${step === i ? 'text-white' : 'text-neutral-500'}`}>{label}</span>
-                  {i < 2 && <span className="hidden sm:block w-5 h-px bg-neutral-800" />}
+                  {i < 3 && <span className="hidden sm:block w-5 h-px bg-neutral-800" />}
                 </div>
               ))}
             </div>
@@ -208,17 +272,77 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
                     {errors[f.key] && <p className="text-[#FF2B66] text-xs mt-1.5">{errors[f.key]}</p>}
                   </div>
                 ))}
+
+                {/* payer name + reference on the details step (kept for a one-shot feel) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold text-neutral-300 mb-2 block">Payer name <span className="text-neutral-500 font-normal">(on your payment)</span></label>
+                    <input value={pay.payerName} onChange={e => {
+                      setPay(p => ({ ...p, payerName: e.target.value }))
+                      if (errors.payerName) setErrors(errs => ({ ...errs, payerName: null }))
+                    }} placeholder="e.g. JUAN DELA CRUZ"
+                      className={`${inputCls} ${errors.payerName ? 'border-[#FF2B66]' : 'border-neutral-800 focus:border-[#FF2B66]'}`} />
+                    {errors.payerName && <p className="text-[#FF2B66] text-xs mt-1.5">{errors.payerName}</p>}
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-neutral-300 mb-2 block">Payment reference</label>
+                    <input value={pay.reference} onChange={e => {
+                      setPay(p => ({ ...p, reference: e.target.value }))
+                      if (errors.reference) setErrors(errs => ({ ...errs, reference: null }))
+                    }} placeholder="e.g. 8823-4109-2211"
+                      className={`${inputCls} ${errors.reference ? 'border-[#FF2B66]' : 'border-neutral-800 focus:border-[#FF2B66]'}`} />
+                    {errors.reference && <p className="text-[#FF2B66] text-xs mt-1.5">{errors.reference}</p>}
+                  </div>
+                </div>
+
                 <button onClick={nextFromDetails} className="w-full bg-[#FF2B66] hover:bg-[#E0245A] text-white font-semibold py-3 rounded-xl transition-colors text-sm flex items-center justify-center gap-2">
                   Continue to payment <ArrowRight size={15} />
                 </button>
               </div>
-            ) : (
+            ) : step === STEPS.payment ? (
               <div className="space-y-4">
                 <div className="p-3.5 rounded-xl bg-white/[0.04] border border-white/10">
                   <p className="text-xs text-neutral-400 leading-relaxed">
-                    Pay <span className="text-white font-semibold">{formatCurrency(event.price)}</span> to the organizer, then upload your proof of payment below.
+                    Pay <span className="text-white font-semibold">{formatCurrency(event.priceRaw || event.price || 0)}</span> with <span className="text-white font-semibold">{pay.method}</span> — either online via PayMongo, or by scanning the GCash QR.
                   </p>
                 </div>
+
+                {/* quick actions: pay online / scan QR */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button type="button" onClick={startOnlinePayment} disabled={online.loading}
+                    className="group rounded-xl border border-[#FF2B66]/30 bg-[#FF2B66]/10 hover:bg-[#FF2B66]/20 px-4 py-3 text-left transition-colors disabled:opacity-50 flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-[#FF2B66]/15 flex items-center justify-center shrink-0">
+                      {online.loading ? <Loader2 size={18} className="animate-spin text-[#FF2B66]" /> : <ExternalLink size={18} className="text-[#FF2B66]" />}
+                    </div>
+                    <div>
+                      <p className="text-white text-sm font-semibold">Pay online</p>
+                      <p className="text-[11px] text-neutral-400 mt-0.5">GCash / Card via PayMongo (opens a secure checkout)</p>
+                    </div>
+                  </button>
+
+                  <button type="button" onClick={() => setQrOpen(true)}
+                    className="group rounded-xl border border-neutral-800 hover:border-[#FF2B66]/50 bg-white/[0.02] hover:bg-white/[0.05] px-4 py-3 text-left transition-colors flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
+                      <QrCode size={18} className="text-neutral-200" />
+                    </div>
+                    <div>
+                      <p className="text-white text-sm font-semibold">Scan GCash QR</p>
+                      <p className="text-[11px] text-neutral-400 mt-0.5">Pay to the organizer's GCash via QR</p>
+                    </div>
+                  </button>
+                </div>
+
+                {online.error && <p className="text-[#FF2B66] text-xs">{online.error}</p>}
+                {online.checking && !online.paid && (
+                  <p className="flex items-center gap-2 text-xs text-neutral-300 bg-white/[0.03] border border-neutral-800 rounded-xl px-3 py-2.5">
+                    <Loader2 size={13} className="animate-spin text-[#FF2B66]" /> Waiting for payment confirmation…
+                  </p>
+                )}
+                {online.paid && (
+                  <p className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-3 py-2.5">
+                    <CheckCircle2 size={13} /> Payment confirmed online. Take a screenshot of the checkout receipt and add it below.
+                  </p>
+                )}
 
                 {/* payment method */}
                 <div>
@@ -252,24 +376,42 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
                   {errors.reference && <p className="text-[#FF2B66] text-xs mt-1.5">{errors.reference}</p>}
                 </div>
 
-                {/* payer name */}
-                <div>
-                  <label className="text-xs font-semibold text-neutral-300 mb-2 block">
-                    Payer name <span className="text-neutral-500 font-normal">(as it appears on your payment)</span>
-                  </label>
-                  <input value={pay.payerName} onChange={e => {
-                    setPay(p => ({ ...p, payerName: e.target.value }))
-                    if (errors.payerName) setErrors(errs => ({ ...errs, payerName: null }))
-                  }}
-                    placeholder="e.g. JUAN DELA CRUZ"
-                    className={`${inputCls} ${errors.payerName ? 'border-[#FF2B66]' : 'border-neutral-800 focus:border-[#FF2B66]'}`} />
-                  {errors.payerName && <p className="text-[#FF2B66] text-xs mt-1.5">{errors.payerName}</p>}
+                <div className="flex gap-3 pt-1">
+                  <button onClick={back}
+                    className="border border-neutral-800 hover:bg-white/5 text-neutral-300 font-semibold py-3 rounded-xl transition-colors text-sm px-5 flex items-center gap-2">
+                    <ArrowLeft size={15} /> Back
+                  </button>
+                  <button onClick={nextFromPayment} disabled={paying}
+                    className="flex-1 bg-[#FF2B66] hover:bg-[#E0245A] text-white font-semibold py-3 rounded-xl transition-colors text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+                    Continue to review <ArrowRight size={15} />
+                  </button>
+                </div>
+              </div>
+            ) : step === STEPS.review ? (
+              <div className="space-y-4">
+                {/* order summary */}
+                <div className="rounded-xl border border-neutral-800 bg-white/[0.02] overflow-hidden">
+                  <div className="px-4 py-3 border-b border-neutral-800/70 bg-white/[0.03] flex items-center gap-2">
+                    <ShieldCheck size={14} className="text-[#FF2B66]" />
+                    <span className="text-xs font-semibold text-white">Review your registration</span>
+                  </div>
+                  <div className="p-4 space-y-2.5 text-sm">
+                    <div className="flex justify-between gap-3"><span className="text-neutral-500">Event</span><span className="text-white text-right">{event.title}</span></div>
+                    <div className="flex justify-between gap-3"><span className="text-neutral-500">Attendee</span><span className="text-white text-right">{form.name}</span></div>
+                    <div className="flex justify-between gap-3"><span className="text-neutral-500">Email</span><span className="text-white text-right">{form.email}</span></div>
+                    <div className="flex justify-between gap-3"><span className="text-neutral-500">Payment method</span><span className="text-white text-right">{pay.method}</span></div>
+                    <div className="flex justify-between gap-3"><span className="text-neutral-500">Reference</span><span className="text-white text-right">{pay.reference}</span></div>
+                    <div className="flex justify-between gap-3 border-t border-neutral-800/70 pt-2.5">
+                      <span className="text-neutral-400 font-semibold">Amount</span>
+                      <span className="text-emerald-400 font-bold">{formatCurrency(event.priceRaw || event.price || 0)}</span>
+                    </div>
+                  </div>
                 </div>
 
-                {/* screenshot upload */}
+                {/* screenshot — REQUIRED */}
                 <div>
                   <label className="text-xs font-semibold text-neutral-300 mb-2 block">
-                    Payment screenshot <span className="text-neutral-500 font-normal">(proof of payment)</span>
+                    Payment screenshot <span className="text-[#FF2B66]">(required)</span>
                   </label>
                   {pay.preview ? (
                     <div className="relative rounded-xl overflow-hidden border border-neutral-800">
@@ -282,7 +424,7 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
                   ) : (
                     <label className={`flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed cursor-pointer transition-all p-8 text-center ${errors.file ? 'border-[#FF2B66]' : 'border-neutral-800 hover:border-[#FF2B66]/50'}`}>
                       <ImagePlus size={22} className="text-neutral-500" />
-                      <span className="text-xs text-neutral-400">Click to upload a screenshot</span>
+                      <span className="text-xs text-neutral-400">Click to upload your payment screenshot</span>
                       <span className="text-[11px] text-neutral-600">PNG, JPG, GIF or WEBP</span>
                       <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" className="hidden"
                         onChange={e => pickFile(e.target.files?.[0])} />
@@ -306,10 +448,40 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
                   </button>
                 </div>
               </div>
-            )}
+            ) : null}
           </>
         )}
       </div>
+
+      {/* ── GCash QR popup ── */}
+      <ModalShell open={qrOpen} onClose={() => setQrOpen(false)}>
+        <div className="flex items-center justify-between border-b border-neutral-800/80 px-6 py-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-[#FF2B66]/15 flex items-center justify-center">
+              <QrCode size={17} className="text-[#FF2B66]" />
+            </div>
+            <h2 className="text-lg font-bold text-white leading-none">Pay via GCash QR</h2>
+          </div>
+          <button onClick={() => setQrOpen(false)} aria-label="Close"
+            className="h-8 w-8 rounded-full bg-neutral-800/70 hover:bg-neutral-800 hover:rotate-90 text-neutral-400 hover:text-white flex items-center justify-center transition-all duration-300">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="p-6 text-center">
+          <div className="mx-auto w-fit rounded-2xl border border-neutral-800 bg-[#0B0B0E] p-3">
+            <img src={qrImage} alt="GCash payment QR" className="w-56 h-56 rounded-xl" />
+          </div>
+          <div className="mt-5 space-y-1.5 text-center">
+            <p className="text-xs text-neutral-400">Scan with your GCash app to pay <span className="text-white font-bold">{formatCurrency(event.priceRaw || event.price || 0)}</span> to</p>
+            <p className="text-lg font-bold text-white tracking-wide">{GCASH_NUMBER}</p>
+            <p className="text-[11px] text-neutral-500">Reference: <span className="text-neutral-300">{reference}</span> · {event.title}</p>
+          </div>
+          <p className="mt-4 text-[11px] text-neutral-500">Demo placeholder number — replace <span className="text-neutral-300">{GCASH_NUMBER}</span> with the real organizer GCash before going live.</p>
+          <button onClick={() => setQrOpen(false)} className="mt-5 w-full bg-[#FF2B66] hover:bg-[#E0245A] text-white text-sm font-semibold rounded-xl py-3 transition-colors">
+            I've paid — continue
+          </button>
+        </div>
+      </ModalShell>
     </ModalShell>
   )
 }

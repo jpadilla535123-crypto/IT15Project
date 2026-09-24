@@ -30,8 +30,21 @@ function initials(name) {
   return String(name || '?').split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase()
 }
 
-function SupplierModal({ categories, onSave, onClose }) {
-  const [form, setForm] = useState({
+function SupplierModal({ categories, onSave, onClose, initial }) {
+  const [form, setForm] = useState(initial ? {
+    Name: initial.Name || '',
+    Category: initial.Category || '',
+    ContactPerson: initial.ContactPerson || '',
+    Email: initial.Email || '',
+    Phone: initial.Phone || '',
+    City: initial.City || '',
+    LeadTimeDays: initial.LeadTimeDays || 3,
+    Rating: initial.Rating ?? 4.5,
+    OnTimeRate: initial.OnTimeRate ?? 95,
+    PackageName: initial.PackageName || '',
+    PackagePrice: initial.PackagePrice || '',
+    PackageInclusions: initial.PackageInclusions || '',
+  } : {
     Name: '',
     Category: '',
     ContactPerson: '',
@@ -41,6 +54,9 @@ function SupplierModal({ categories, onSave, onClose }) {
     LeadTimeDays: 3,
     Rating: 4.5,
     OnTimeRate: 95,
+    PackageName: '',
+    PackagePrice: '',
+    PackageInclusions: '',
   })
   const [errors, setErrors] = useState({})
   const [step, setStep] = useState(1)
@@ -88,7 +104,7 @@ function SupplierModal({ categories, onSave, onClose }) {
           <div className="h-11 w-11 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center text-white mb-3">
             <PackageCheck size={20} />
           </div>
-          <h3 className="font-bold text-lg text-white">Add a supplier</h3>
+          <h3 className="font-bold text-lg text-white">{initial ? 'Edit supplier' : 'Add a supplier'}</h3>
           <p className="text-white/80 text-xs mt-0.5">
             {step === 1 ? 'Who will you be working with?' : 'Almost there — review the supplier.'}
           </p>
@@ -114,9 +130,9 @@ function SupplierModal({ categories, onSave, onClose }) {
             <div className="fx-success-pop w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center">
               <CheckCircle2 size={30} className="text-emerald-500" />
             </div>
-            <p className="font-bold text-gray-900 dark:text-white">Supplier added!</p>
+            <p className="font-bold text-gray-900 dark:text-white">{initial ? 'Supplier updated!' : 'Supplier added!'}</p>
             <p className="text-xs text-gray-500 dark:text-[#9CA3AF]">
-              {form.Name} is now part of your directory.
+              {form.Name} is {initial ? 'now updated in' : 'now part of'} your directory.
             </p>
           </div>
         ) : step === 1 ? (
@@ -189,6 +205,30 @@ function SupplierModal({ categories, onSave, onClose }) {
                   className={inputClass('OnTimeRate')} />
               </div>
             </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-gray-500 dark:text-[#9CA3AF] mb-1.5 block">Package name</label>
+                <input type="text" value={form.PackageName} onChange={e => set('PackageName', e.target.value)}
+                  placeholder="e.g. Royal Feast Package"
+                  className={inputClass('PackageName')} />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-500 dark:text-[#9CA3AF] mb-1.5 block">Package price (₱)</label>
+                <input type="number" min="0" value={form.PackagePrice}
+                  onChange={e => set('PackagePrice', Number(e.target.value))}
+                  placeholder="e.g. 45000"
+                  className={inputClass('PackagePrice')} />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500 dark:text-[#9CA3AF] mb-1.5 block">
+                Package inclusions <span className="font-normal">(one per line)</span>
+              </label>
+              <textarea value={form.PackageInclusions} onChange={e => set('PackageInclusions', e.target.value)}
+                placeholder={'Buffet for 100 pax\nWaiter service & setup\nFree tasting session'}
+                rows={3}
+                className="w-full bg-gray-50 dark:bg-[#0B0B0E] border border-gray-200 dark:border-[#2A2A36] rounded-xl px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-[#FF2B66]/60 transition-all resize-none" />
+            </div>
             <button type="submit"
               className="w-full bg-[#FF2B66] hover:bg-[#E0245A] text-white font-semibold py-3 rounded-xl transition-all text-sm flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-rose-500/20">
               Review supplier <ArrowRight size={15} />
@@ -230,6 +270,19 @@ function SupplierModal({ categories, onSave, onClose }) {
                     style={{ width: `${form.OnTimeRate}%` }} />
                 </div>
               </div>
+              {form.PackageName && (
+                <div className="mt-3 rounded-xl border border-[#FF2B66]/30 bg-[#FF2B66]/5 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-bold text-[#FF2B66] truncate">{form.PackageName}</p>
+                    {form.PackagePrice > 0 && <p className="text-xs font-bold text-gray-900 dark:text-white shrink-0">{formatCurrency(form.PackagePrice)}</p>}
+                  </div>
+                  {form.PackageInclusions && (
+                    <ul className="mt-2 space-y-1 text-[11px] text-gray-500 dark:text-[#9CA3AF]">
+                      {form.PackageInclusions.split('\n').map((l, i) => l.trim() && <li key={i}>· {l.trim()}</li>)}
+                    </ul>
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex gap-2 mt-5">
               <button onClick={() => setStep(1)}
@@ -238,7 +291,7 @@ function SupplierModal({ categories, onSave, onClose }) {
               </button>
               <button onClick={confirm} disabled={saving}
                 className="flex-1 bg-[#FF2B66] hover:bg-[#E0245A] text-white font-semibold py-3 rounded-xl transition-all text-sm flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-rose-500/20 disabled:opacity-60">
-                {saving ? <><Loader2 size={14} className="animate-spin" /> Saving...</> : 'Add to directory'}
+                {saving ? <><Loader2 size={14} className="animate-spin" /> Saving...</> : initial ? 'Update supplier' : 'Add to directory'}
               </button>
             </div>
           </div>
@@ -257,6 +310,8 @@ export default function SupplierManagement({ user }) {
   const [query, setQuery] = useState('')
   const [cat, setCat] = useState('All')
   const [showAddSupplier, setShowAddSupplier] = useState(false)
+  const [pkgSupplier, setPkgSupplier] = useState(null)
+  const [editing, setEditing] = useState(null)
 
   const cats = useMemo(() => ['All', ...new Set(suppliers.map(s => s.Category))], [suppliers])
   const supById = useMemo(() => new Map(suppliers.map(s => [s.Id, s])), [suppliers])
@@ -282,6 +337,10 @@ export default function SupplierManagement({ user }) {
   function addSupplier(s) {
     const id = Math.max(0, ...suppliers.map(x => x.Id)) + 1
     setSuppliers(list => [...list, { Id: id, Status: 'Active', ...s }])
+  }
+  function editSupplier(s) {
+    setSuppliers(list => list.map(x => x.Id === editing.Id ? { ...x, ...s, Id: editing.Id } : x))
+    setEditing(null)
   }
 
   const TABS = [
@@ -372,6 +431,20 @@ export default function SupplierManagement({ user }) {
                     </div>
                   </div>
 
+                  <button type="button" onClick={() => setPkgSupplier(s)}
+                    className="mt-3 w-full inline-flex items-center gap-2 rounded-xl border border-[#FF2B66]/40 bg-[#FF2B66]/5 hover:bg-[#FF2B66]/15 px-3 py-2.5 text-left transition-all group">
+                    <span className="h-8 w-8 rounded-lg bg-[#FF2B66]/15 text-[#FF2B66] flex items-center justify-center shrink-0">
+                      <PackageSearch size={14} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[11px] font-bold text-[#FF2B66] truncate">{s.PackageName || 'No package yet'}</span>
+                      <span className="block text-[10px] text-gray-400 dark:text-[#9CA3AF]">
+                        {s.PackagePrice > 0 ? `${formatCurrency(s.PackagePrice)} · ${(s.PackageInclusions || '').split('\n').filter(Boolean).length} inclusions` : 'Click to add details'}
+                      </span>
+                    </span>
+                    <span className="text-[#FF2B66] group-hover:translate-x-0.5 transition-transform"><ArrowRight size={13} /></span>
+                  </button>
+
                   <p className="mt-3 text-xs text-gray-500 dark:text-[#9CA3AF] truncate">
                     Contact: <span className="font-semibold text-gray-700 dark:text-gray-200">{s.ContactPerson}</span>
                   </p>
@@ -448,11 +521,75 @@ export default function SupplierManagement({ user }) {
         </div>
       )}
 
+      {pkgSupplier && (
+        <div className="fx-modal-backdrop fx-open" onClick={() => setPkgSupplier(null)}>
+          <div className="fx-modal-panel !max-w-lg w-full max-h-[92vh] overflow-y-auto no-scrollbar bg-white dark:bg-[#121217] border border-gray-200 dark:border-[#2A2A36] rounded-2xl shadow-2xl"
+            onClick={e => e.stopPropagation()}>
+            <div className="relative bg-gradient-to-r from-[#FF2B66] to-[#FF5C8A] px-6 pt-5 pb-6">
+              <button onClick={() => setPkgSupplier(null)} aria-label="Close"
+                className="absolute top-4 right-4 h-8 w-8 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-all hover:rotate-90 duration-300">
+                <X size={15} />
+              </button>
+              <div className="h-11 w-11 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center text-white mb-3">
+                <PackageSearch size={20} />
+              </div>
+              <h3 className="font-bold text-lg text-white">{pkgSupplier.Name}</h3>
+              <p className="text-white/80 text-xs mt-0.5">{pkgSupplier.Category} · {pkgSupplier.City}</p>
+            </div>
+
+            <div className="p-6">
+              <div className="flex items-center justify-between gap-3 pb-3 border-b border-gray-200 dark:border-[#2A2A36]/60">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400 dark:text-[#6B7280]">Package</p>
+                  <p className="text-lg font-bold text-gray-900 dark:text-white mt-0.5">{pkgSupplier.PackageName || 'No package set yet'}</p>
+                </div>
+                {pkgSupplier.PackagePrice > 0 && (
+                  <p className="text-xl font-extrabold text-[#FF2B66] shrink-0">{formatCurrency(pkgSupplier.PackagePrice)}</p>
+                )}
+              </div>
+
+              <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400 dark:text-[#6B7280] mt-4 mb-2">Inclusions</p>
+              {pkgSupplier.PackageInclusions ? (
+                <ul className="space-y-2">
+                  {pkgSupplier.PackageInclusions.split('\n').map((line, i) => line.trim() && (
+                    <li key={i} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300">
+                      <CheckCircle2 size={15} className="shrink-0 text-emerald-500 mt-0.5" /> {line.trim()}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-gray-500 dark:text-[#9CA3AF]">No inclusions listed yet. Edit this supplier to add a package.</p>
+              )}
+
+              <div className="flex gap-2 mt-6">
+                <button onClick={() => { setEditing(pkgSupplier); setPkgSupplier(null) }}
+                  className="flex-1 bg-[#FF2B66] hover:bg-[#E0245A] text-white font-semibold py-3 rounded-xl transition-all text-sm hover:shadow-lg hover:shadow-rose-500/20">
+                  Edit package
+                </button>
+                <button onClick={() => setPkgSupplier(null)}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 dark:border-[#2A2A36] px-4 py-3 text-sm font-bold text-gray-600 dark:text-gray-300 hover:border-[#FF2B66]/50 hover:text-[#FF2B66] transition-colors">
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showAddSupplier && (
         <SupplierModal
           categories={suppliers.map(s => s.Category)}
           onSave={addSupplier}
           onClose={() => setShowAddSupplier(false)}
+        />
+      )}
+
+      {editing && (
+        <SupplierModal
+          categories={suppliers.map(s => s.Category)}
+          initial={editing}
+          onSave={editSupplier}
+          onClose={() => setEditing(null)}
         />
       )}
     </AppLayout>

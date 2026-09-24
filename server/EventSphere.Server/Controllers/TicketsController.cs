@@ -1,7 +1,11 @@
 using System.ComponentModel.DataAnnotations;
+using System.Net.Http.Headers;
 using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using EventSphere.Server.Data;
 using EventSphere.Server.Models;
+using EventSphere.Server.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -16,11 +20,17 @@ public class TicketsController : ControllerBase
 
     private readonly AppDbContext _db;
     private readonly IWebHostEnvironment _env;
+    private readonly IConfiguration _config;
+    private readonly ILogger<TicketsController> _logger;
+    private readonly EmailService _email;
 
-    public TicketsController(AppDbContext db, IWebHostEnvironment env)
+    public TicketsController(AppDbContext db, IWebHostEnvironment env, IConfiguration config, ILogger<TicketsController> logger, EmailService email)
     {
         _db = db;
         _env = env;
+        _config = config;
+        _logger = logger;
+        _email = email;
     }
 
     public class TicketRegistrationRequest
@@ -111,6 +121,27 @@ public class TicketsController : ControllerBase
 
         _db.Registrations.Add(registration);
         await _db.SaveChangesAsync();
+
+        /* confirmation email — only actually sent when SMTP is configured on the
+           server; otherwise the landing flow still succeeds (no hard failure). */
+        if (_email.IsConfigured)
+        {
+            try
+            {
+                var body = $@"
+<h2 style='margin:0 0 12px'>Ticket confirmation</h2>
+<p>Hi <strong>{request.FullName}</strong>, your registration for <strong>{evt.Name}</strong> is received.</p>
+<p><strong>Ticket reference:</strong> {registration.TicketReference}</p>
+<p><strong>Amount:</strong> ₱{amount:N2} &nbsp;·&nbsp; <strong>Payment method:</strong> {request.PaymentMethod}</p>
+<p>Our team will validate your payment shortly. Keep this reference number for any follow-ups.</p>
+<p style='color:#777;font-size:12px'>{DateTime.Now:MMMM d, yyyy} · EventSphere</p>";
+                await _email.SendAsync(registration.Email ?? "guest@example.com", "Your EventSphere ticket confirmation", body);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not send ticket confirmation email to {Email}", registration.Email);
+            }
+        }
 
         return CreatedAtAction(nameof(GetById), new { id = registration.Id }, new
         {
@@ -289,4 +320,125 @@ public class TicketsController : ControllerBase
             registration.CreatedAt,
         });
     }
+
+    // ── Anonymous PayMongo hosted checkout (landing "pay online" GCash/Card) ──
+    [HttpPost("public/paymongo-checkout")]
+    [AllowAnonymous]
+    public async Task<IActionResult> CreatePublicPayMongoCheckout([FromBody] PublicPayMongoCheckoutRequest request)
+    {
+        var baseUrl = (_config.GetSection("PayMongo:BaseUrl").Value ?? "https://api.paymongo.com/v1").TrimEnd('/');
+        var secretKey = _config.GetSection("PayMongo:SecretKey").Value ?? "";
+
+        var evt = request.EventId > 0 ? await _db.Events.FindAsync(request.EventId) : null;
+        var amount = request.Amount > 0 ? request.Amount : (evt?.Venue?.PricePerDay ?? 0m);
+        var description = !string.IsNullOrWhiteSpace(request.Description)
+            ? request.Description
+            : evt != null ? $"Ticket to {evt.Name}" : "EventSphere ticket";
+
+        var payload = new
+        {
+            data = new
+            {
+                attributes = new
+                {
+                    amount = (long)(amount * 100),
+                    currency = "PHP",
+                    description,
+                    statement_descriptor = "EventSphere",
+                    line_items = new[]
+                    {
+                        new { currency = "PHP", amount = (long)(amount * 100), name = evt?.Name ?? "Event ticket", quantity = 1 }
+                    },
+                    payment_method_types = new[] { "gcash", "card" },
+                    payment_method_options = new { card = new { request_three_d_secure = "automatic" } },
+                    success_url = $"{Request.Scheme}://{Request.Host}/?paymongo=success",
+                    cancel_url = $"{Request.Scheme}://{Request.Host}/?paymongo=cancel"
+                }
+            }
+        };
+
+        using var client = new HttpClient();
+        var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        if (!string.IsNullOrEmpty(secretKey))
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(secretKey)));
+
+        try
+        {
+            using var response = await client.PostAsync($"{baseUrl}/checkout_sessions", content);
+            var body = await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError("PayMongo checkout failed {Status}: {Body}", (int)response.StatusCode, body);
+                return StatusCode((int)response.StatusCode, new { message = "The payment gateway could not start a checkout. Try the QR code option instead." });
+            }
+
+            using var doc = JsonDocument.Parse(body);
+            var root = doc.RootElement.GetProperty("data");
+            var attributes = root.GetProperty("attributes");
+            var checkoutUrl = attributes.TryGetProperty("checkout_url", out var cu) ? cu.GetString() : null;
+            var id = root.TryGetProperty("id", out var sid) ? sid.GetString() : null;
+            if (string.IsNullOrEmpty(checkoutUrl))
+                return StatusCode(502, new { message = "The payment gateway returned no checkout link. Please use the QR code option instead." });
+
+            return Ok(new { checkoutUrl, sessionId = id, amount });
+        }
+        catch (TaskCanceledException)
+        {
+            return StatusCode(504, new { message = "The payment gateway timed out. Please try again or use the QR code option." });
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "PayMongo checkout network error");
+            return StatusCode(502, new { message = "The payment gateway is unreachable right now. Please use the QR code option instead." });
+        }
+    }
+
+    [HttpGet("public/paymongo-status/{sessionId}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetPublicPayMongoStatus(string sessionId)
+    {
+        var baseUrl = (_config.GetSection("PayMongo:BaseUrl").Value ?? "https://api.paymongo.com/v1").TrimEnd('/');
+        var secretKey = _config.GetSection("PayMongo:SecretKey").Value ?? "";
+
+        using var client = new HttpClient();
+        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        if (!string.IsNullOrEmpty(secretKey))
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(secretKey)));
+
+        try
+        {
+            using var response = await client.GetAsync($"{baseUrl}/checkout_sessions/{sessionId}");
+            var body = await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode)
+                return Ok(new { paid = false, status = "unknown", paymentStatus = "checkout session not found" });
+
+            using var doc = JsonDocument.Parse(body);
+            var attributes = doc.RootElement.GetProperty("data").GetProperty("attributes");
+            var status = attributes.TryGetProperty("status", out var st) ? st.GetString() : "unknown";
+            var paymentStatus = "unpaid";
+            if (attributes.TryGetProperty("payments", out var payments) && payments.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var p in payments.EnumerateArray())
+                    if (p.TryGetProperty("status", out var ps) && ps.GetString() == "paid") paymentStatus = "paid";
+            }
+            return Ok(new { paid = paymentStatus == "paid", status, paymentStatus });
+        }
+        catch (TaskCanceledException)
+        {
+            return Ok(new { paid = false, status = "unknown", paymentStatus = "pending" });
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "PayMongo status network error for {Session}", sessionId);
+            return Ok(new { paid = false, status = "unknown", paymentStatus = "pending" });
+        }
+    }
+}
+
+public class PublicPayMongoCheckoutRequest
+{
+    public int EventId { get; set; }
+    public decimal Amount { get; set; }
+    public string? Description { get; set; }
 }

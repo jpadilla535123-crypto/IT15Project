@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Wallet, TrendingUp, Activity, ArrowUpCircle, ArrowDownCircle,
   Plus, X, Loader2, ImagePlus, Trash2, Building2, CalendarDays, PackageCheck, Calculator, PieChart, History, ChevronDown, Banknote,
@@ -50,6 +50,12 @@ export default function BudgetManagement({ user }) {
   const [form, setForm] = useState({ supplierId: '', eventId: '', description: '', amount: '', method: 'Bank Transfer', reference: '', date: '' })
   const [file, setFile] = useState({ value: null, preview: null })
 
+  /* live auto-refresh so the Total Earnings KPI stays current without a manual reload */
+  useEffect(() => {
+    const t = setInterval(() => { reload() }, 30000)
+    return () => clearInterval(t)
+  }, [reload])
+
   const supById = useMemo(() => new Map(suppliers.map(s => [s.Id, s])), [suppliers])
   const venueById = useMemo(() => new Map(venues.map(v => [v.Id, v])), [venues])
 
@@ -59,6 +65,9 @@ export default function BudgetManagement({ user }) {
   const salaryThisMonth = (data.employees || []).filter(e => e.Status === 'Active').reduce((s, e) => s + (Number(e.Salary) || 0), 0)
   const used = spentThisMonth + salaryThisMonth
   const cashFlow = gained - used
+  /* Total Earnings (all time) is the all-time income minus this month's used,
+     recalculated live from the same data driving the other KPIs. */
+  const totalEarnings = Math.max(0, incomeTotal - used)
 
   /* combined recent transactions for the selected month (client income + supplier expenses) */
   const transactions = useMemo(() => {
@@ -203,7 +212,7 @@ export default function BudgetManagement({ user }) {
       </PageHeader>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Kpi icon={TrendingUp} label="Total Earnings (all time)"><StatValue value={incomeTotal} /></Kpi>
+        <Kpi icon={TrendingUp} label="Total Earnings (all time)"><StatValue value={totalEarnings} /></Kpi>
         <Kpi icon={ArrowUpCircle} label="Gained this month" tone="text-emerald-500" bg="bg-emerald-500/10" delay={80}>
           ₱<StatValue value={gained} />
         </Kpi>
