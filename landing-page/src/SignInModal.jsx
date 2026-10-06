@@ -118,9 +118,8 @@ export default function SignInModal({ open, onClose, onSuccess }) {
 
           {/* brand */}
           <div className="relative flex items-center gap-2.5 p-7">
-            <div className="bg-white/15 backdrop-blur h-9 w-9 rounded-lg flex items-center justify-center text-white">
-              <Sparkles size={17} />
-            </div>
+            <img src="/logo.png" alt="EventSphere"
+              className="h-9 w-9 rounded-lg bg-white object-cover p-0.5 shadow-lg" />
             <span className="text-white text-lg font-bold tracking-tight">EventSphere</span>
           </div>
 

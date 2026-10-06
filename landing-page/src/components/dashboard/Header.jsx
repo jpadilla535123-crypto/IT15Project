@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Search, Bell, MessageCircle, Sparkles, LogOut, Menu, X } from 'lucide-react'
+import { Search, Bell, MessageCircle, LogOut, Menu, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { usePanels } from './PanelsContext'
@@ -43,9 +43,8 @@ export default function Header({ user, badgeCount = 0, searchValue, onSearchChan
             aria-label="Open menu">
             <Menu size={18} />
           </button>
-          <div className="w-8 h-8 rounded-xl bg-[#FF2B66]/15 flex items-center justify-center">
-            <Sparkles size={16} className="text-[#FF2B66]" />
-          </div>
+          <img src="/logo.png" alt="EventSphere"
+            className="w-8 h-8 rounded-lg bg-white object-cover p-0.5 ring-1 ring-black/5" />
           <span className="font-bold text-lg tracking-tight text-gray-900 dark:text-white">EventSphere</span>
         </div>
 

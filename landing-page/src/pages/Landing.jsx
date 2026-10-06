@@ -207,9 +207,8 @@ export default function Landing({ user }) {
       <header className="fixed top-0 left-0 right-0 z-50 bg-[#0B0B0E]/80 backdrop-blur-xl border-b border-[#2A2A36]/50">
         <nav className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <a href="#" className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-[#FF2B66]/15 flex items-center justify-center">
-              <div className="w-4 h-4 rounded-full bg-[#FF2B66]" />
-            </div>
+            <img src="/logo.png" alt="EventSphere"
+              className="w-9 h-9 rounded-xl bg-white object-cover p-0.5 ring-1 ring-black/10" />
             <span className="text-white font-bold text-lg tracking-tight">EventSphere</span>
           </a>
 
@@ -534,9 +533,8 @@ export default function Landing({ user }) {
             {/* Brand */}
             <div className="space-y-4">
               <div className="flex items-center gap-2">
-                <div className="bg-[#FF2B66] p-1.5 rounded-md text-white">
-                  <Sparkles size={16} />
-                </div>
+                <img src="/logo.png" alt="EventSphere"
+                  className="w-9 h-9 rounded-md bg-white object-cover p-0.5 ring-1 ring-black/10" />
                 <span className="text-white font-bold text-base">EventSphere</span>
               </div>
               <p className="text-[#6B7280] text-xs max-w-xs leading-relaxed">
