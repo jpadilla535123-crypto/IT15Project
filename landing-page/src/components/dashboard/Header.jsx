@@ -113,9 +113,8 @@ export default function Header({ user, badgeCount = 0, searchValue, onSearchChan
           <aside className="absolute left-0 top-0 h-full w-72 bg-white dark:bg-[#0B0B0E] border-r border-gray-200 dark:border-[#2A2A36]/60 flex flex-col">
             <div className="h-16 flex items-center justify-between px-5 border-b border-gray-200 dark:border-[#2A2A36]/60">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-[#FF2B66]/15 flex items-center justify-center">
-                  <Sparkles size={16} className="text-[#FF2B66]" />
-                </div>
+                <img src="/logo.png" alt="EventSphere"
+                  className="w-8 h-8 rounded-lg bg-white object-cover p-0.5 ring-1 ring-black/5" />
           <span className="hidden min-[400px]:inline font-bold text-lg tracking-tight text-gray-900 dark:text-white">EventSphere</span>
               </div>
               <button onClick={closeMenu}
