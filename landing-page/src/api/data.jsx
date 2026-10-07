@@ -160,6 +160,8 @@ function mapRegistration(r) {
     Flags: Array.isArray(r.flags) ? r.flags : [],
     RiskScore: Number(r.riskScore) || 0,
     TicketReference: r.ticketReference,
+    SeatNumber: r.seatNumber || '',
+    RejectReason: r.rejectReason || '',
     CreatedAt: toDate(r.createdAt),
   }
 }

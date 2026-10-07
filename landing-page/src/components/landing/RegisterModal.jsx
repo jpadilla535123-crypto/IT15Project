@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   X, Calendar, MapPin, Check, Loader2, ArrowRight, ArrowLeft, Smartphone, Landmark, CreditCard, Wallet, ImagePlus, Lock,
-  QrCode, ExternalLink, ShieldCheck, CheckCircle2,
+  QrCode, ExternalLink, ShieldCheck, CheckCircle2, Clock,
 } from 'lucide-react'
 import ModalShell from './ModalShell'
 import { api } from '../../api/client'
@@ -208,10 +208,20 @@ export default function RegisterModal({ event, onClose, onSuccess }) {
             <div className="w-16 h-16 rounded-full bg-emerald-500/15 flex items-center justify-center mx-auto">
               <Check size={32} className="text-emerald-400" />
             </div>
-            <h2 className="text-2xl font-bold text-white mt-5">You're all set!</h2>
-            <p className="text-sm text-neutral-400 mt-2">A confirmation was sent to <span className="text-white">{form.email}</span>. Our team will validate your payment shortly.</p>
+            <h2 className="text-2xl font-bold text-white mt-5">Payment submitted!</h2>
+            <p className="text-sm text-neutral-400 mt-2">We received your registration. Your payment is being verified — once confirmed, we'll email your ticket and seat number to <span className="text-white">{form.email}</span>.</p>
 
-            <div className="mt-6 text-left card-dark p-5 space-y-3">
+            <div className="mt-6 text-left card-dark p-5 space-y-2.5">
+              <div className="flex items-center gap-2.5 text-amber-400">
+                <Clock size={15} />
+                <span className="text-sm font-semibold">Seat reserved after payment confirmation</span>
+              </div>
+              <p className="text-xs text-neutral-400 leading-relaxed">
+                Every payment proof is checked before tickets are handed out — usually within one business day. Watch your inbox for your ticket and seat number.
+              </p>
+            </div>
+
+            <div className="mt-3 text-left card-dark p-5 space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-xs text-neutral-500 uppercase tracking-wider font-semibold">Ticket reference</span>
                 <span className="text-[#FF2B66] font-bold text-sm">{reference}</span>

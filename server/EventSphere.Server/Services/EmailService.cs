@@ -115,8 +115,12 @@ public static class EmailBranding
       </tr>";
     }
 
-    public static string Heading(string text)
-        => $"<h1 style='margin:0 0 10px 0;font-size:19px;font-weight:800;letter-spacing:-0.2px;'>{text}</h1>";
+    /* Tinted callout used when an action needs an explanation (e.g. a rejected payment). */
+    public static string Alert(string title, string text)
+        => $@"<div style='margin:0 0 14px 0;border:1px solid #f5dbe5;border-radius:10px;background:#fff5f7;padding:14px 16px;'>
+      <div style='font-size:13px;font-weight:800;color:#ff2b66;'>{title}</div>
+      <div style='margin-top:3px;font-size:13px;line-height:1.6;color:#1f2430;'>{text}</div>
+    </div>";
 
     public static string Paragraph(string text)
         => $"<p style='margin:0 0 12px 0;line-height:1.65;'>{text}</p>";

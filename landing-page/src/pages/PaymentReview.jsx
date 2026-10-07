@@ -59,15 +59,37 @@ export default function PaymentReview({ user }) {
       })
   }, [registrations, filter, query])
 
-  async function setStatus(r, status) {
+  async function confirmPayment(r) {
     setBusyId(r.Id)
     try {
-      await api.put(`/api/tickets/${r.Id}/status`, { status })
+      await api.put(`/api/tickets/${r.Id}/status`, { status: 'Confirmed' })
       await reload()
     } catch (err) {
-      alert(err.message || 'Could not update the registration status.')
+      alert(err.message || 'Could not confirm this registration.')
     } finally {
       setBusyId(null)
+    }
+  }
+
+  /* rejecting requires the reviewer's note — it's emailed to the attendee */
+  const [rejectTarget, setRejectTarget] = useState(null)
+  const [rejectNote, setRejectNote] = useState('')
+  const [rejectBusy, setRejectBusy] = useState(false)
+
+  async function submitRejection() {
+    const r = rejectTarget
+    const note = rejectNote.trim()
+    if (!r || !note) return
+    setRejectBusy(true)
+    try {
+      await api.put(`/api/tickets/${r.Id}/status`, { status: 'Rejected', note })
+      setRejectTarget(null)
+      setRejectNote('')
+      await reload()
+    } catch (err) {
+      alert(err.message || 'Could not reject this registration.')
+    } finally {
+      setRejectBusy(false)
     }
   }
 
@@ -181,6 +203,9 @@ export default function PaymentReview({ user }) {
                       </td>
                       <td className="px-4 py-3.5">
                         <p className="font-mono text-xs font-bold text-[#FF2B66]">{r.TicketReference}</p>
+                        {r.Status === 'Confirmed' && r.SeatNumber && (
+                          <p className="font-mono text-[11px] font-bold text-emerald-500 mt-1">Seat {r.SeatNumber}</p>
+                        )}
                         <p className="text-xs font-semibold text-gray-900 dark:text-white mt-1">{formatCurrency(r.Amount)}</p>
                         {r.ExpectedAmount > 0 && (
                           <p className={`text-[11px] ${Math.abs(r.Amount - r.ExpectedAmount) > 1 ? 'text-[#FF2B66]' : 'text-gray-400 dark:text-[#6B7280]'}`}>
@@ -229,15 +254,20 @@ export default function PaymentReview({ user }) {
                         <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_TONES[r.Status] || STATUS_TONES.Pending}`}>
                           {r.Status}
                         </span>
+                        {r.Status === 'Rejected' && r.RejectReason && (
+                          <p className="mt-1 text-[10px] italic text-red-500 dark:text-[#FF6B94] max-w-[170px] truncate" title={r.RejectReason}>
+                            {r.RejectReason}
+                          </p>
+                        )}
                       </td>
                       <td className="px-4 py-3.5 text-right">
                         {r.Status === 'Pending' ? (
                           <div className="inline-flex gap-1.5">
-                            <button onClick={() => setStatus(r, 'Confirmed')} disabled={busyId === r.Id}
+                            <button onClick={() => confirmPayment(r)} disabled={busyId === r.Id}
                               className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold px-3 py-1.5 transition-colors disabled:opacity-50">
                               {busyId === r.Id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />} Confirm
                             </button>
-                            <button onClick={() => setStatus(r, 'Rejected')} disabled={busyId === r.Id}
+                            <button onClick={() => { setRejectTarget(r); setRejectNote('') }} disabled={busyId === r.Id}
                               className="inline-flex items-center gap-1 rounded-lg border border-red-300 dark:border-red-500/40 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 text-xs font-semibold px-3 py-1.5 transition-colors disabled:opacity-50">
                               <XCircle size={12} /> Reject
                             </button>
@@ -388,6 +418,47 @@ export default function PaymentReview({ user }) {
               clientId={openEvent.event.ClientId}
               onDone={reload} />
             <p className="mt-3 text-[10px] text-gray-400 text-center">Record a partial payment now, and keep recording until the invoice is fully paid.</p>
+          </div>
+        </div>
+      )}
+
+      {rejectTarget && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6" onClick={() => setRejectTarget(null)}>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div className="relative mt-auto sm:mt-0 w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-gray-200 dark:border-[#2A2A36] bg-white dark:bg-[#121217] p-5 sm:p-6 shadow-2xl"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <h4 className="font-bold text-lg text-gray-900 dark:text-white">Reject this payment</h4>
+                <p className="text-[11px] text-gray-400 mt-0.5">{rejectTarget.FullName} · {rejectTarget.TicketReference}</p>
+              </div>
+              <button onClick={() => setRejectTarget(null)} className="h-8 w-8 rounded-lg border border-gray-200 dark:border-[#2A2A36] text-gray-500 hover:text-[#FF2B66] flex items-center justify-center">✕</button>
+            </div>
+
+            <label className="block text-xs font-bold text-gray-500 dark:text-[#9CA3AF] mb-1.5">
+              Reason for rejection <span className="text-[#FF2B66]">(required)</span>
+            </label>
+            <textarea value={rejectNote} onChange={e => setRejectNote(e.target.value)} rows={4}
+              placeholder="e.g. Screenshot is unclear, or the reference number does not match the amount."
+              className="w-full rounded-xl border border-gray-200 dark:border-[#2A2A36] bg-white dark:bg-[#0B0B0E] px-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-[#6B7280] focus:outline-none focus:border-[#FF2B66] transition-colors" />
+
+            {rejectNote.trim() && (
+              <div className="mt-3 rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-xs text-red-600 dark:text-[#FF6B94] leading-relaxed">
+                This note will be emailed to <b className="text-gray-900 dark:text-white">{rejectTarget.Email || 'their address'}</b> so they know why
+                their payment was declined and how to fix it.
+              </div>
+            )}
+
+            <div className="flex gap-2.5 mt-5">
+              <button onClick={() => setRejectTarget(null)} disabled={rejectBusy}
+                className="flex-1 border border-gray-200 dark:border-[#2A2A36] hover:bg-gray-50 dark:hover:bg-white/[0.03] text-gray-700 dark:text-gray-200 text-sm font-bold rounded-xl py-2.5 transition-colors disabled:opacity-50">
+                Cancel
+              </button>
+              <button onClick={submitRejection} disabled={rejectBusy || !rejectNote.trim()}
+                className="flex-1 inline-flex items-center justify-center gap-1.5 bg-[#FF2B66] hover:bg-[#E0245A] text-white text-sm font-bold rounded-xl py-2.5 transition-colors disabled:opacity-50">
+                {rejectBusy ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />} Reject & notify attendee
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -48,4 +48,7 @@ public class Registration : BaseEntity
 
     [Display(Name = "Seat Number")]
     public string? SeatNumber { get; set; }
+
+    [Display(Name = "Reject Reason")]
+    public string? RejectReason { get; set; }
 }

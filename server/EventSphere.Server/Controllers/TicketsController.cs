@@ -120,14 +120,13 @@ public class TicketsController : ControllerBase
             registration.EvidenceHash = Convert.ToHexString(SHA256.HashData(bytes));
         }
 
-        var seatCount = await _db.Registrations.CountAsync(r => r.EventId == evt.Id);
-        registration.SeatNumber = $"GA-{evt.Id:D3}-{seatCount + 1:D3}";
-
         _db.Registrations.Add(registration);
         await _db.SaveChangesAsync();
 
         /* confirmation email — only actually sent when SMTP is configured on the
-           server; otherwise the landing flow still succeeds (no hard failure). */
+           server; otherwise the landing flow still succeeds (no hard failure).
+           At this point the payment is UNVERIFIED, so no seat number is issued:
+           it is reserved and emailed once staff confirms the payment. */
         if (_email.IsConfigured)
         {
             try
@@ -139,8 +138,7 @@ public class TicketsController : ControllerBase
                     : "TBA";
 
                 var body = EmailBranding.Wrap(
-                    EmailBranding.Paragraph($"Hi <b>{firstName}</b> — thanks for registering for <b>{evt.Name}</b>! Here's your ticket.") +
-                    EmailBranding.SeatBanner(registration.SeatNumber ?? "GA") +
+                    EmailBranding.Paragraph($"Hi <b>{firstName}</b> — thanks for registering for <b>{evt.Name}</b>! Here's what happens now.") +
                     EmailBranding.TicketBlock(
                         evt.Name,
                         ("Date", evt.StartDate.ToString("dddd, MMMM d, yyyy")),
@@ -149,14 +147,16 @@ public class TicketsController : ControllerBase
                         ("Email", registration.Email ?? "—"),
                         ("Phone", string.IsNullOrWhiteSpace(registration.Phone) ? "—" : registration.Phone),
                         ("Payment method", registration.PaymentMethod),
-                        ("Amount", $"₱{amount:N2}"),
-                        ("Ticket reference", registration.TicketReference)) +
-                    EmailBranding.Paragraph("Our team will validate your payment shortly. Keep your ticket reference handy for any follow-ups — just reply to this email and we're here to help.") +
+                        ("Ticket reference", registration.TicketReference),
+                        ("Amount", $"₱{amount:N2}")) +
+                    EmailBranding.Paragraph("<b>Your payment is now being reviewed.</b> Our team checks every payment proof before tickets and seats are handed out.") +
+                    EmailBranding.Step(1, "We verify your payment", "A coordinator reviews your payment proof — usually within one business day.") +
+                    EmailBranding.Step(2, "Your seat number arrives", "Once confirmed, we'll email your ticket with your reserved seat number.") +
                     EmailBranding.Divider() +
-                    EmailBranding.PrimaryButton("View your tickets online"),
-                    "You're in! 🎟️",
-                    $"{evt.Name} — see you there!");
-                await _email.SendAsync(registration.Email ?? "guest@example.com", "Your EventSphere ticket — " + evt.Name, body);
+                    EmailBranding.PrimaryButton("Keep an eye on your inbox"),
+                    "Payment received 🙏",
+                    evt.Name);
+                await _email.SendAsync(registration.Email ?? "guest@example.com", "We received your payment — " + evt.Name, body);
             }
             catch (Exception ex)
             {
@@ -225,6 +225,8 @@ public class TicketsController : ControllerBase
                 r.Amount,
                 r.Status,
                 r.TicketReference,
+                r.SeatNumber,
+                r.RejectReason,
                 r.CreatedAt,
             })
             .ToListAsync();
@@ -279,6 +281,8 @@ public class TicketsController : ControllerBase
                 r.Amount,
                 r.Status,
                 r.TicketReference,
+                r.SeatNumber,
+                r.RejectReason,
                 r.CreatedAt,
                 Flags = flags,
                 RiskScore = flags.Count,
@@ -288,7 +292,10 @@ public class TicketsController : ControllerBase
         return Ok(new { items = rows, total = rows.Count, page = page ?? 1, pageSize = pageSize ?? 100, totalPages = 1 });
     }
 
-    /* Staff review: set a registration's payment status. */
+    /* Staff review: set a registration's payment status. Confirming a payment
+       assigns the attendee their seat and emails their ticket; rejecting stores
+       the note entered by the reviewer and emails it to the attendee so they
+       know why their payment wasn't confirmed. */
     [HttpPut("{id}/status")]
     [Authorize(Roles = "Admin,Manager,Finance")]
     public async Task<IActionResult> SetStatus(int id, [FromBody] SetStatusRequest request)
@@ -296,19 +303,124 @@ public class TicketsController : ControllerBase
         if (request.Status is not ("Pending" or "Confirmed" or "Rejected"))
             return BadRequest(new { message = "Status must be Pending, Confirmed or Rejected." });
 
-        var registration = await _db.Registrations.FindAsync(id);
+        var registration = await _db.Registrations
+            .Include(r => r.Event!)
+            .ThenInclude(e => e!.Venue)
+            .FirstOrDefaultAsync(r => r.Id == id);
         if (registration == null)
             return NotFound();
 
+        /* No-op if the status didn't actually change — avoids double emails when
+           a reviewer re-clicks the same action. */
+        if (registration.Status == request.Status)
+            return Ok(new { registration.Id, registration.Status, registration.SeatNumber });
+
         registration.Status = request.Status;
+
+        if (request.Status == "Confirmed")
+        {
+            /* A seat is only handed out once the payment is verified, so a rejected
+               ticket never consumes a seat number. */
+            if (string.IsNullOrWhiteSpace(registration.SeatNumber))
+            {
+                var sequence = await _db.Registrations.CountAsync(r => r.EventId == registration.EventId && r.Status == "Confirmed");
+                registration.SeatNumber = $"GA-{registration.EventId:D3}-{sequence + 1:D3}";
+            }
+            registration.RejectReason = null;
+        }
+        else if (request.Status == "Rejected")
+        {
+            registration.RejectReason = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim();
+        }
+
         await _db.SaveChangesAsync();
 
-        return Ok(new { registration.Id, registration.Status });
+        if (_email.IsConfigured)
+        {
+            try
+            {
+                if (request.Status == "Confirmed")
+                    await SendTicketEmailAsync(registration);
+                else if (request.Status == "Rejected")
+                    await SendRejectionEmailAsync(registration);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not send status update email to {Email}", registration.Email);
+            }
+        }
+
+        return Ok(new { registration.Id, registration.Status, registration.SeatNumber });
     }
 
     public class SetStatusRequest
     {
         public string Status { get; set; } = string.Empty;
+
+        /* Optional note used when Rejected — shown to the attendee in the email. */
+        public string? Note { get; set; }
+    }
+
+    /* Boarding-pass style ticket email, sent once a payment is confirmed. */
+    private async Task SendTicketEmailAsync(Registration registration)
+    {
+        var evt = registration.Event;
+        var email = registration.Email;
+        if (evt == null || string.IsNullOrWhiteSpace(email)) return;
+
+        var firstName = (registration.FullName ?? string.Empty).Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "friend";
+        var venueLine = evt.Venue != null
+            ? string.Join(", ", new[] { evt.Venue.Name, evt.Venue.City }.Where(s => !string.IsNullOrWhiteSpace(s)))
+            : "TBA";
+
+        var body = EmailBranding.Wrap(
+            EmailBranding.Paragraph($"Hi <b>{firstName}</b> — your payment is confirmed. Here's your ticket for <b>{evt.Name}</b>!") +
+            EmailBranding.SeatBanner(registration.SeatNumber ?? "GA") +
+            EmailBranding.TicketBlock(
+                evt.Name,
+                ("Date", evt.StartDate.ToString("dddd, MMMM d, yyyy")),
+                ("Venue", venueLine),
+                ("Attendee", registration.FullName ?? "—"),
+                ("Email", registration.Email ?? "—"),
+                ("Phone", string.IsNullOrWhiteSpace(registration.Phone) ? "—" : registration.Phone),
+                ("Payment method", registration.PaymentMethod),
+                ("Amount", $"₱{registration.Amount:N2}"),
+                ("Ticket reference", registration.TicketReference)) +
+            EmailBranding.Paragraph("Keep your ticket reference handy for any follow-ups — just reply to this email and we're here to help.") +
+            EmailBranding.Divider() +
+            EmailBranding.PrimaryButton("See you there!"),
+            "You're in! 🎟️",
+            $"{evt.Name} — see you there!");
+        await _email.SendAsync(email, "Your EventSphere ticket — " + evt.Name, body);
+    }
+
+    /* Sent when a payment is rejected, including the reviewer's note so the
+       attendee knows exactly why and how to move forward. */
+    private async Task SendRejectionEmailAsync(Registration registration)
+    {
+        var evt = registration.Event;
+        var email = registration.Email;
+        if (evt == null || string.IsNullOrWhiteSpace(email)) return;
+
+        var firstName = (registration.FullName ?? string.Empty).Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "friend";
+        var reason = string.IsNullOrWhiteSpace(registration.RejectReason)
+            ? "Our team could not verify your payment. Please reach out and we'll help you sort it out."
+            : registration.RejectReason;
+
+        var body = EmailBranding.Wrap(
+            EmailBranding.Paragraph($"Hi <b>{firstName}</b>, a quick update on your registration for <b>{evt.Name}</b>:") +
+            EmailBranding.Alert("Why your payment wasn't confirmed", reason) +
+            EmailBranding.InfoRows(
+                ("Event", evt.Name),
+                ("Ticket reference", registration.TicketReference),
+                ("Payment method", registration.PaymentMethod),
+                ("Amount", $"₱{registration.Amount:N2}")) +
+            EmailBranding.Paragraph("No worries — you can try again with a corrected payment, or simply reply to this email and our team will personally help you secure your seat.") +
+            EmailBranding.Divider() +
+            EmailBranding.PrimaryButton("Contact EventSphere"),
+            "A note about your payment",
+            evt.Name);
+        await _email.SendAsync(email, "Update on your EventSphere ticket — " + evt.Name, body);
     }
 
     [HttpGet("{id}")]
@@ -339,6 +451,8 @@ public class TicketsController : ControllerBase
             registration.Amount,
             registration.Status,
             registration.TicketReference,
+            registration.SeatNumber,
+            registration.RejectReason,
             registration.CreatedAt,
         });
     }
