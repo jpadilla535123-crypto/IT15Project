@@ -119,7 +119,7 @@ export default function SignInModal({ open, onClose, onSuccess }) {
           {/* brand */}
           <div className="relative flex items-center gap-2.5 p-7">
             <img src="/logo.png" alt="EventSphere"
-              className="h-9 w-9 rounded-lg bg-white object-cover p-0.5 shadow-lg" />
+              className="h-10 w-auto object-contain" />
             <span className="text-white text-lg font-bold tracking-tight">EventSphere</span>
           </div>
 

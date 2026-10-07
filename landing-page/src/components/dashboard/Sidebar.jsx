@@ -121,7 +121,7 @@ export default function Sidebar({ role, theme, onToggleTheme }) {
     <aside className="hidden lg:flex w-60 shrink-0 flex-col border-r border-gray-200 dark:border-[#2A2A36]/60 bg-white dark:bg-[#0B0B0E]">
       <div className="h-16 flex items-center gap-2.5 px-6 border-b border-gray-200 dark:border-[#2A2A36]/60">
         <img src="/logo.png" alt="EventSphere"
-          className="w-8 h-8 rounded-lg bg-white object-cover p-0.5 ring-1 ring-black/5" />
+          className="h-9 w-auto object-contain" />
         <span className="font-bold text-lg tracking-tight text-gray-900 dark:text-white">EventSphere</span>
       </div>
       <SidebarNav role={role} theme={theme} onToggleTheme={onToggleTheme} />

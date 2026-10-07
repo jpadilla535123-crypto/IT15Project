@@ -208,7 +208,7 @@ export default function Landing({ user }) {
         <nav className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <a href="#" className="flex items-center gap-2">
             <img src="/logo.png" alt="EventSphere"
-              className="w-9 h-9 rounded-xl bg-white object-cover p-0.5 ring-1 ring-black/10" />
+              className="h-10 w-auto object-contain" />
             <span className="text-white font-bold text-lg tracking-tight">EventSphere</span>
           </a>
 
@@ -534,7 +534,7 @@ export default function Landing({ user }) {
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <img src="/logo.png" alt="EventSphere"
-                  className="w-9 h-9 rounded-md bg-white object-cover p-0.5 ring-1 ring-black/10" />
+                  className="h-10 w-auto object-contain" />
                 <span className="text-white font-bold text-base">EventSphere</span>
               </div>
               <p className="text-[#6B7280] text-xs max-w-xs leading-relaxed">
