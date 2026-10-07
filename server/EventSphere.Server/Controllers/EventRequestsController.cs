@@ -130,12 +130,13 @@ public class EventRequestsController : ControllerBase
             try
             {
                 var subject = "We received your event request — EventSphere";
-                var body =
-$@"<p>Hi {name},</p>
-<p>Thanks for reaching out to <b>EventSphere</b> about your {req.EventType ?? "event"}.</p>
-<p>We received your request and a dedicated coordinator will get back to you within one business day with ideas, availability, and honest pricing.</p>
-<p>If you'd like to give us more details in the meantime, simply reply to this email.</p>
-<p>Best regards,<br/>The EventSphere Team</p>";
+                var body = EmailBranding.Wrap(
+                    EmailBranding.Heading("We received your event request") +
+                    EmailBranding.Paragraph($"Hi {name},") +
+                    EmailBranding.Paragraph($"Thanks for reaching out to <b>EventSphere</b> about your {req.EventType ?? "event"}.") +
+                    EmailBranding.Paragraph("We received your request and a dedicated coordinator will get back to you within one business day with ideas, availability, and honest pricing.") +
+                    EmailBranding.Paragraph("If you'd like to give us more details in the meantime, simply reply to this email.") +
+                    $"<p style='margin:0;line-height:1.6;'>Best regards,<br/><strong>EventSphere Team</strong></p>");
                 await _email.SendAsync(email, subject, body);
             }
             catch
@@ -244,7 +245,7 @@ $@"<p>Hi {name},</p>
 
         try
         {
-            await _email.SendAsync(eventRequest.Email, subject, body);
+            await _email.SendAsync(eventRequest.Email, subject, EmailBranding.Wrap(body));
             return Ok(new { sent = true, to = eventRequest.Email, subject });
         }
         catch (Exception ex)

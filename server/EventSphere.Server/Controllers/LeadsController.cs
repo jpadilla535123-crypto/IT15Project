@@ -139,11 +139,12 @@ public class LeadsController : ControllerBase
             try
             {
                 var subject = "Welcome to the EventSphere list!";
-                var body =
-$@"<p>Hi {lead.ContactName ?? "there"},</p>
-<p>Thanks for staying in the loop with <b>EventSphere</b>.</p>
-<p>You'll now get first dibs on our upcoming events, venue deals, and early-bird ticket offers — nothing spammy, and you can unsubscribe anytime.</p>
-<p>See you at the next one,<br/>The EventSphere Team</p>";
+                var body = EmailBranding.Wrap(
+                    EmailBranding.Heading("Welcome to the EventSphere list!") +
+                    EmailBranding.Paragraph($"Hi {lead.ContactName ?? "there"},") +
+                    EmailBranding.Paragraph("Thanks for staying in the loop with <b>EventSphere</b>.") +
+                    EmailBranding.Paragraph("You'll now get first dibs on our upcoming events, venue deals, and early-bird ticket offers — nothing spammy, and you can unsubscribe anytime.") +
+                    $"<p style='margin:0;line-height:1.6;'>See you at the next one,<br/><strong>EventSphere Team</strong></p>");
                 await _email.SendAsync(email, subject, body);
             }
             catch
@@ -300,7 +301,7 @@ $@"<p>Hi {lead.ContactName ?? "there"},</p>
 
         try
         {
-            await _email.SendAsync(lead.Email, subject, body);
+            await _email.SendAsync(lead.Email, subject, EmailBranding.Wrap(body));
             return Ok(new { sent = true, to = lead.Email, subject });
         }
         catch (Exception ex)
