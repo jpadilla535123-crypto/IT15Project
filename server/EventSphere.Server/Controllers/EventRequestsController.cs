@@ -131,12 +131,17 @@ public class EventRequestsController : ControllerBase
             {
                 var subject = "We received your event request — EventSphere";
                 var body = EmailBranding.Wrap(
-                    EmailBranding.Heading("We received your event request") +
                     EmailBranding.Paragraph($"Hi {name},") +
-                    EmailBranding.Paragraph($"Thanks for reaching out to <b>EventSphere</b> about your {req.EventType ?? "event"}.") +
-                    EmailBranding.Paragraph("We received your request and a dedicated coordinator will get back to you within one business day with ideas, availability, and honest pricing.") +
+                    EmailBranding.Paragraph("Thanks for reaching out to <b>EventSphere</b> about your " + (req.EventType ?? "event") + ". Your request is in, and a dedicated coordinator is already on it.") +
+                    EmailBranding.Paragraph("Here's what happens next:") +
+                    EmailBranding.Step(1, "We review your details", "A coordinator looks over your event type, date, and guest count within one business day.") +
+                    EmailBranding.Step(2, "We come back with ideas", "You'll receive venue options, themes, and honest pricing that fits your budget.") +
+                    EmailBranding.Step(3, "We lock things in", "Once you pick a plan, we handle the coordination so you can enjoy the event too.") +
+                    EmailBranding.Divider() +
                     EmailBranding.Paragraph("If you'd like to give us more details in the meantime, simply reply to this email.") +
-                    $"<p style='margin:0;line-height:1.6;'>Best regards,<br/><strong>EventSphere Team</strong></p>");
+                    $"<p style='margin:0;line-height:1.65;'>Best regards,<br/><strong>EventSphere Team</strong></p>",
+                    "Request received 📩",
+                    "We'll be in touch within one business day");
                 await _email.SendAsync(email, subject, body);
             }
             catch

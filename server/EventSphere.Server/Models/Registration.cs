@@ -45,4 +45,7 @@ public class Registration : BaseEntity
 
     [Display(Name = "Ticket Reference")]
     public string TicketReference { get; set; } = string.Empty;
+
+    [Display(Name = "Seat Number")]
+    public string? SeatNumber { get; set; }
 }

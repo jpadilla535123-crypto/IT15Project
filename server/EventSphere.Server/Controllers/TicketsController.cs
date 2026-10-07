@@ -120,6 +120,9 @@ public class TicketsController : ControllerBase
             registration.EvidenceHash = Convert.ToHexString(SHA256.HashData(bytes));
         }
 
+        var seatCount = await _db.Registrations.CountAsync(r => r.EventId == evt.Id);
+        registration.SeatNumber = $"GA-{evt.Id:D3}-{seatCount + 1:D3}";
+
         _db.Registrations.Add(registration);
         await _db.SaveChangesAsync();
 
@@ -129,18 +132,31 @@ public class TicketsController : ControllerBase
         {
             try
             {
+                var firstName = (request.FullName ?? string.Empty).Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "friend";
+                var venue = evt.VenueId.HasValue ? await _db.Venues.FindAsync(evt.VenueId.Value) : null;
+                var venueLine = venue != null
+                    ? string.Join(", ", new[] { venue.Name, venue.City }.Where(s => !string.IsNullOrWhiteSpace(s)))
+                    : "TBA";
+
                 var body = EmailBranding.Wrap(
-                    EmailBranding.Heading("Ticket confirmation") +
-                    EmailBranding.Paragraph($"Hi <strong>{request.FullName}</strong>, your registration for <strong>{evt.Name}</strong> is received.") +
-                    $@"<table role='presentation' border='0' cellpadding='0' cellspacing='0' width='100%' style='background:#fafafa;border:1px solid #e5e7eb;border-radius:8px;margin:0 0 16px 0;'>
-            <tr><td style='padding:12px 16px;font-size:13px;line-height:1.6;'>
-              <strong>Ticket reference:</strong> {registration.TicketReference}<br/>
-              <strong>Amount:</strong> ₱{amount:N2} &nbsp;·&nbsp; <strong>Payment method:</strong> {request.PaymentMethod}
-            </td></tr>
-          </table>" +
-                    EmailBranding.Paragraph("Our team will validate your payment shortly. Keep this reference number for any follow-ups.") +
-                    $"<p style='margin:0;font-size:12px;color:#6b7280;'>{DateTime.Now:MMMM d, yyyy} · EventSphere</p>");
-                await _email.SendAsync(registration.Email ?? "guest@example.com", "Your EventSphere ticket confirmation", body);
+                    EmailBranding.Paragraph($"Hi <b>{firstName}</b> — thanks for registering for <b>{evt.Name}</b>! Here's your ticket.") +
+                    EmailBranding.SeatBanner(registration.SeatNumber ?? "GA") +
+                    EmailBranding.TicketBlock(
+                        evt.Name,
+                        ("Date", evt.StartDate.ToString("dddd, MMMM d, yyyy")),
+                        ("Venue", venueLine),
+                        ("Attendee", request.FullName ?? "—"),
+                        ("Email", registration.Email ?? "—"),
+                        ("Phone", string.IsNullOrWhiteSpace(registration.Phone) ? "—" : registration.Phone),
+                        ("Payment method", registration.PaymentMethod),
+                        ("Amount", $"₱{amount:N2}"),
+                        ("Ticket reference", registration.TicketReference)) +
+                    EmailBranding.Paragraph("Our team will validate your payment shortly. Keep your ticket reference handy for any follow-ups — just reply to this email and we're here to help.") +
+                    EmailBranding.Divider() +
+                    EmailBranding.PrimaryButton("View your tickets online"),
+                    "You're in! 🎟️",
+                    $"{evt.Name} — see you there!");
+                await _email.SendAsync(registration.Email ?? "guest@example.com", "Your EventSphere ticket — " + evt.Name, body);
             }
             catch (Exception ex)
             {
@@ -162,6 +178,7 @@ public class TicketsController : ControllerBase
             registration.Amount,
             registration.Status,
             registration.TicketReference,
+            registration.SeatNumber,
             ClientId = registration.ClientId,
             EventName = evt.Name,
             registration.CreatedAt,

@@ -138,13 +138,41 @@ public class LeadsController : ControllerBase
         {
             try
             {
-                var subject = "Welcome to the EventSphere list!";
+                var upcomingEvents = _db.Events
+                    .Include(e => e.Venue)
+                    .Where(e => e.Status != "Completed" && e.Status != "Cancelled" && e.AccessType == "Public" && e.StartDate >= DateTime.Today)
+                    .OrderBy(e => e.StartDate)
+                    .Take(4)
+                    .ToList();
+
+                var eventsBlock = new System.Text.StringBuilder();
+                eventsBlock.Append(EmailBranding.SectionLabel("Upcoming public events"));
+                if (upcomingEvents.Count == 0)
+                {
+                    eventsBlock.Append(EmailBranding.Paragraph("We're between public events right now — new ticket drops are on the way, so keep an eye on your inbox."));
+                }
+                else
+                {
+                    foreach (var e in upcomingEvents)
+                    {
+                        var loc = e.Venue == null || string.IsNullOrWhiteSpace(e.Venue.Name)
+                            ? string.Empty
+                            : string.Join(", ", new[] { e.Venue.Name, e.Venue.City }.Where(s => !string.IsNullOrWhiteSpace(s)));
+                        eventsBlock.Append(EmailBranding.EventCard(e.Name, e.EventType,
+                            e.StartDate.ToString("dddd, MMMM d, yyyy"), loc, e.Venue?.PricePerDay ?? 0m));
+                    }
+                }
+
+                var subject = "Welcome to the EventSphere list! 🎉";
                 var body = EmailBranding.Wrap(
-                    EmailBranding.Heading("Welcome to the EventSphere list!") +
                     EmailBranding.Paragraph($"Hi {lead.ContactName ?? "there"},") +
-                    EmailBranding.Paragraph("Thanks for staying in the loop with <b>EventSphere</b>.") +
-                    EmailBranding.Paragraph("You'll now get first dibs on our upcoming events, venue deals, and early-bird ticket offers — nothing spammy, and you can unsubscribe anytime.") +
-                    $"<p style='margin:0;line-height:1.6;'>See you at the next one,<br/><strong>EventSphere Team</strong></p>");
+                    EmailBranding.Paragraph("Thanks for staying in the loop with <b>EventSphere</b> — here's what we're opening up tickets for right now:") +
+                    eventsBlock.ToString() +
+                    EmailBranding.Paragraph("Tickets go fast, so grab yours before they're gone. No worries if nothing fits yet — you'll be the first to know when new events drop.") +
+                    EmailBranding.Divider() +
+                    EmailBranding.PrimaryButton("Get your tickets"),
+                    "You're on the list! 🎉",
+                    "Here's what's coming up next");
                 await _email.SendAsync(email, subject, body);
             }
             catch
