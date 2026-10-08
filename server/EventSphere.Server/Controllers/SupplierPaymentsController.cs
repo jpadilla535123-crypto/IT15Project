@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Security.Cryptography;
 using EventSphere.Server.Data;
 using EventSphere.Server.Models;
+using EventSphere.Server.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -16,11 +17,13 @@ public class SupplierPaymentsController : ControllerBase
 
     private readonly AppDbContext _db;
     private readonly IWebHostEnvironment _env;
+    private readonly StorageService _storage;
 
-    public SupplierPaymentsController(AppDbContext db, IWebHostEnvironment env)
+    public SupplierPaymentsController(AppDbContext db, IWebHostEnvironment env, StorageService storage)
     {
         _db = db;
         _env = env;
+        _storage = storage;
     }
 
     public class RecordRequest
@@ -72,17 +75,11 @@ public class SupplierPaymentsController : ControllerBase
             DateTime.TryParse(request.PaymentDate, out var parsed))
             paymentDate = parsed.Date;
 
-        var uploadDir = Path.Combine(_env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot"), "uploads", "suppliers");
-        Directory.CreateDirectory(uploadDir);
-        var fileName = $"{Guid.NewGuid():N}".Substring(0, 24) + ext;
-        var filePath = Path.Combine(uploadDir, fileName);
-
         var bytes = new byte[request.Evidence.Length];
         await using (var mem = new MemoryStream(bytes, writable: true))
         {
             await request.Evidence.CopyToAsync(mem);
         }
-        await System.IO.File.WriteAllBytesAsync(filePath, bytes);
 
         var payment = new SupplierPayment
         {
@@ -94,9 +91,9 @@ public class SupplierPaymentsController : ControllerBase
             ReferenceNumber = request.ReferenceNumber?.Trim(),
             PaymentDate = paymentDate,
             Status = "Paid",
-            EvidencePath = $"/uploads/suppliers/{fileName}",
             EvidenceHash = Convert.ToHexString(SHA256.HashData(bytes)),
         };
+        payment.EvidencePath = await _storage.SaveImageAsync(bytes, $"{Guid.NewGuid():N}".Substring(0, 24) + ext, "suppliers");
 
         _db.SupplierPayments.Add(payment);
         await _db.SaveChangesAsync();
@@ -189,7 +186,9 @@ public class SupplierPaymentsController : ControllerBase
         if (payment == null)
             return NotFound();
 
-        if (!string.IsNullOrEmpty(payment.EvidencePath))
+        /* remove the local copy when it's a server-relative path; Cloudinary assets
+           (https://...) are left in place to avoid an extra network round-trip */
+        if (!string.IsNullOrEmpty(payment.EvidencePath) && !payment.EvidencePath.StartsWith("http", StringComparison.OrdinalIgnoreCase))
         {
             var root = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
             var fullPath = Path.Combine(root, payment.EvidencePath.TrimStart('/'));

@@ -22,6 +22,7 @@ var jwt = builder.Configuration.GetSection("Jwt").Get<JwtSettings>() ?? new JwtS
 builder.Services.AddSingleton(jwt);
 builder.Services.AddSingleton<TokenService>();
 builder.Services.AddSingleton<EmailService>();
+builder.Services.AddSingleton<StorageService>();
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

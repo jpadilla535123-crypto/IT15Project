@@ -19,18 +19,18 @@ public class TicketsController : ControllerBase
     private static readonly string[] AllowedEvidence = { ".png", ".jpg", ".jpeg", ".gif", ".webp" };
 
     private readonly AppDbContext _db;
-    private readonly IWebHostEnvironment _env;
     private readonly IConfiguration _config;
     private readonly ILogger<TicketsController> _logger;
     private readonly EmailService _email;
+    private readonly StorageService _storage;
 
-    public TicketsController(AppDbContext db, IWebHostEnvironment env, IConfiguration config, ILogger<TicketsController> logger, EmailService email)
+    public TicketsController(AppDbContext db, IConfiguration config, ILogger<TicketsController> logger, EmailService email, StorageService storage)
     {
         _db = db;
-        _env = env;
         _config = config;
         _logger = logger;
         _email = email;
+        _storage = storage;
     }
 
     public class TicketRegistrationRequest
@@ -104,19 +104,14 @@ public class TicketsController : ControllerBase
             if (!AllowedEvidence.Contains(ext))
                 return BadRequest(new { message = "Payment evidence must be an image (png, jpg, jpeg, gif, webp)." });
 
-            var uploadDir = Path.Combine(_env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot"), "uploads", "payments");
-            Directory.CreateDirectory(uploadDir);
-            var fileName = $"{registration.TicketReference}-{Guid.NewGuid():N}".Substring(0, 24) + ext;
-            var filePath = Path.Combine(uploadDir, fileName);
-
             /* hash the bytes so the review queue can flag the same screenshot being reused */
             var bytes = new byte[request.Evidence.Length];
             await using (var mem = new MemoryStream(bytes, writable: true))
             {
                 await request.Evidence.CopyToAsync(mem);
             }
-            await System.IO.File.WriteAllBytesAsync(filePath, bytes);
-            registration.EvidencePath = $"/uploads/payments/{fileName}";
+            var fileName = $"{registration.TicketReference}-{Guid.NewGuid():N}".Substring(0, 24) + ext;
+            registration.EvidencePath = await _storage.SaveImageAsync(bytes, fileName, "payments");
             registration.EvidenceHash = Convert.ToHexString(SHA256.HashData(bytes));
         }
 

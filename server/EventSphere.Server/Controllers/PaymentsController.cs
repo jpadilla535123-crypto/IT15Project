@@ -4,6 +4,7 @@ using System.Text.Json;
 using EventSphere.Server.Data;
 using EventSphere.Server.Extensions;
 using EventSphere.Server.Models;
+using EventSphere.Server.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -18,16 +19,16 @@ public class PaymentsController : ControllerBase
     private static readonly string[] AllowedEvidence = { ".png", ".jpg", ".jpeg", ".gif", ".webp" };
 
     private readonly AppDbContext _db;
-    private readonly IWebHostEnvironment _env;
     private readonly ILogger<PaymentsController> _logger;
+    private readonly StorageService _storage;
     private readonly string _payMongoBaseUrl;
     private readonly string _payMongoSecretKey;
 
-    public PaymentsController(AppDbContext db, IWebHostEnvironment env, IConfiguration config, ILogger<PaymentsController> logger)
+    public PaymentsController(AppDbContext db, IConfiguration config, ILogger<PaymentsController> logger, StorageService storage)
     {
         _db = db;
-        _env = env;
         _logger = logger;
+        _storage = storage;
         _payMongoBaseUrl = (config.GetSection("PayMongo:BaseUrl").Value ?? "https://api.paymongo.com/v1").TrimEnd('/');
         _payMongoSecretKey = config.GetSection("PayMongo:SecretKey").Value ?? "";
     }
@@ -155,15 +156,13 @@ public class PaymentsController : ControllerBase
             if (!AllowedEvidence.Contains(ext))
                 return BadRequest(new { message = "Payment evidence must be an image (png, jpg, jpeg, gif, webp)." });
 
-            var uploadDir = Path.Combine(_env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot"), "uploads", "payments");
-            Directory.CreateDirectory(uploadDir);
             var fileName = $"PAY-{invoice.InvoiceNumber}-{Guid.NewGuid():N}".Substring(0, 28) + ext;
-            var filePath = Path.Combine(uploadDir, fileName);
-            await using (var stream = new FileStream(filePath, FileMode.Create))
+            var bytes = new byte[req.Evidence.Length];
+            await using (var mem = new MemoryStream(bytes, writable: true))
             {
-                await req.Evidence.CopyToAsync(stream);
+                await req.Evidence.CopyToAsync(mem);
             }
-            payment.EvidencePath = $"/uploads/payments/{fileName}";
+            payment.EvidencePath = await _storage.SaveImageAsync(bytes, fileName, "payments");
         }
 
         _db.Payments.Add(payment);

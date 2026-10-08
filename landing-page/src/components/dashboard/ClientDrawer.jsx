@@ -1,7 +1,7 @@
 import { X, Calendar, Wallet, CreditCard, FileText, ExternalLink, Image } from 'lucide-react'
 import { formatCurrency, formatFullDate } from './format'
 import { useData } from '../../api/data'
-import { API_URL } from '../../api/client'
+import { assetUrl } from '../../api/client'
 import clientStatusBadge from './clientBadge'
 
 function initials(name) {
@@ -128,10 +128,10 @@ export default function ClientDrawer({ client, onClose }) {
                     {r.EvidencePath && (
                       <div>
                         <p className="text-[11px] font-semibold text-gray-400 dark:text-[#6B7280] uppercase tracking-wider mb-1.5">Payment Evidence</p>
-                        <a href={`${API_URL}${r.EvidencePath}`} target="_blank" rel="noopener noreferrer"
+                        <a href={assetUrl(r.EvidencePath)} target="_blank" rel="noopener noreferrer"
                           className="group relative block rounded-xl overflow-hidden border border-gray-200 dark:border-[#2A2A36] hover:border-[#FF2B66]/50 transition-colors">
                           <img
-                            src={`${API_URL}${r.EvidencePath}`}
+                            src={assetUrl(r.EvidencePath)}
                             alt="Payment evidence"
                             className="w-full max-h-48 object-contain bg-black/30"
                             onError={e => { e.target.style.display = 'none' }}

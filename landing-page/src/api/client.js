@@ -6,6 +6,14 @@ const ENV_API_URL = import.meta.env.VITE_API_URL
    the frontend is deployed separately from the API. */
 export const API_URL = ENV_API_URL || ''
 
+/* Turns a stored evidence path into a loadable URL. Cloudinary-backed records
+   already store a full https:// URL (used as-is); older records store a
+   server-relative /uploads/... path (prefixed with the API origin). */
+export function assetUrl(path) {
+  if (!path) return ''
+  return /^https?:\/\//i.test(path) ? path : `${API_URL}${path}`
+}
+
 const TOKEN_KEY = 'eventsphere_token'
 const USER_KEY = 'eventsphere_user'
 

@@ -7,7 +7,7 @@ import AppLayout from './AppLayout'
 import { StatValue, Kpi, PageHeader } from '../components/dashboard/Shared'
 import { formatCurrency } from '../components/dashboard/format'
 import { useData } from '../api/data'
-import { api, API_URL } from '../api/client'
+import { api, assetUrl } from '../api/client'
 import './landingFx.css'
 
 const CATS = [
@@ -340,9 +340,9 @@ export default function BudgetManagement({ user }) {
                     </p>
                   </div>
                   {t.evidence && (
-                    <a href={`${API_URL}${t.evidence}`} target="_blank" rel="noopener noreferrer" title="View proof"
+                    <a href={assetUrl(t.evidence)} target="_blank" rel="noopener noreferrer" title="View proof"
                       className="h-8 w-8 shrink-0 rounded-lg border border-gray-200 dark:border-[#2A2A36] overflow-hidden hover:border-[#FF2B66]/50 transition-colors">
-                      <img src={`${API_URL}${t.evidence}`} alt="proof" className="h-full w-full object-cover" onError={e => { e.target.style.display = 'none' }} />
+                      <img src={assetUrl(t.evidence)} alt="proof" className="h-full w-full object-cover" onError={e => { e.target.style.display = 'none' }} />
                     </a>
                   )}
                   <div className="shrink-0 text-right">
@@ -613,8 +613,8 @@ function LogisticsList({ title, items, icon: Icon, render, amount, evidence }) {
             return (
               <li key={i} className="flex items-center gap-3 rounded-lg border border-gray-200 dark:border-[#2A2A36] p-2.5">
                 {ev ? (
-                  <button onClick={() => window.open(`${API_URL}${ev}`, '_blank')} className="block shrink-0 overflow-hidden rounded-lg">
-                    <img src={`${API_URL}${ev}`} alt="proof" className="h-9 w-9 object-cover hover:scale-105 transition-transform" />
+                  <button onClick={() => window.open(assetUrl(ev), '_blank')} className="block shrink-0 overflow-hidden rounded-lg">
+                    <img src={assetUrl(ev)} alt="proof" className="h-9 w-9 object-cover hover:scale-105 transition-transform" />
                   </button>
                 ) : <span className="h-9 w-9 shrink-0 rounded-lg bg-gray-100 dark:bg-[#2A2A36] flex items-center justify-center"><Icon size={13} className="text-gray-400" /></span>}
                 <div className="flex-1 min-w-0">{render(it)}</div>

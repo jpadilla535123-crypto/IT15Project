@@ -7,7 +7,7 @@ import AppLayout from './AppLayout'
 import { StatValue, Kpi, PageHeader, SearchBar, Chip } from '../components/dashboard/Shared'
 import { formatCurrency, formatFullDate } from '../components/dashboard/format'
 import { useData } from '../api/data'
-import { api, API_URL } from '../api/client'
+import { api, assetUrl } from '../api/client'
 import InvoicePaymentForm from '../components/dashboard/InvoicePaymentForm'
 import './landingFx.css'
 
@@ -223,9 +223,9 @@ export default function PaymentReview({ user }) {
                       </td>
                       <td className="px-4 py-3.5">
                         {r.EvidencePath ? (
-                          <a href={`${API_URL}${r.EvidencePath}`} target="_blank" rel="noopener noreferrer"
+                          <a href={assetUrl(r.EvidencePath)} target="_blank" rel="noopener noreferrer"
                             className="group relative block h-12 w-12 rounded-lg overflow-hidden border border-gray-200 dark:border-[#2A2A36] hover:border-[#FF2B66]/50 transition-colors">
-                            <img src={`${API_URL}${r.EvidencePath}`} alt="Evidence" className="h-full w-full object-cover"
+                            <img src={assetUrl(r.EvidencePath)} alt="Evidence" className="h-full w-full object-cover"
                               onError={e => { e.target.style.display = 'none' }} />
                             <span className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/40 transition-colors opacity-0 group-hover:opacity-100">
                               <ExternalLink size={14} className="text-white" />
@@ -397,8 +397,8 @@ export default function PaymentReview({ user }) {
                 ) : openEvent.payments.map(p => (
                   <li key={p.Id} className="flex items-center gap-3 rounded-lg border border-gray-200 dark:border-[#2A2A36] p-2.5">
                     {p.EvidencePath ? (
-                      <button onClick={() => window.open(`${API_URL}${p.EvidencePath}`, '_blank')} className="block shrink-0 overflow-hidden rounded-lg">
-                        <img src={`${API_URL}${p.EvidencePath}`} alt="proof" className="h-11 w-11 object-cover hover:scale-105 transition-transform" />
+                      <button onClick={() => window.open(assetUrl(p.EvidencePath), '_blank')} className="block shrink-0 overflow-hidden rounded-lg">
+                        <img src={assetUrl(p.EvidencePath)} alt="proof" className="h-11 w-11 object-cover hover:scale-105 transition-transform" />
                       </button>
                     ) : <div className="h-11 w-11 rounded-lg bg-gray-100 dark:bg-[#2A2A36] flex items-center justify-center"><ImageIcon size={14} className="text-gray-400" /></div>}
                     <div className="min-w-0 flex-1">

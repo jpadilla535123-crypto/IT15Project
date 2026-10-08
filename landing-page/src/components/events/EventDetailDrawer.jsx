@@ -10,7 +10,7 @@ import VenuePicker from './VenuePicker'
 import BookingCard from './BookingCard'
 import { useSystem, venueUnavailableReason, employeeUnavailableReason } from '../dashboard/SystemState'
 import { useData } from '../../api/data'
-import { api, API_URL } from '../../api/client'
+import { api, assetUrl } from '../../api/client'
 import '../../pages/landingFx.css'
 
 const PIPELINE_STEPS = bookingSteps.slice(0, 5)
@@ -230,7 +230,7 @@ export default function EventDetailDrawer({ event, client, venue, venues = [], e
     ? (data.payments || []).filter(p => p.InvoiceId === existingInvoice.id)
     : []
   const viewPayments = !isNewBooking && existingPayments.length > 0
-    ? existingPayments.map(p => ({ key: `ep-${p.Id}`, method: p.Method, amount: p.Amount, reference: p.Reference, img: p.EvidencePath ? `${API_URL}${p.EvidencePath}` : null }))
+    ? existingPayments.map(p => ({ key: `ep-${p.Id}`, method: p.Method, amount: p.Amount, reference: p.Reference, img: assetUrl(p.EvidencePath) }))
     : filledRows.map(r => ({ key: r.key, method: r.method, amount: Number(r.amount) || 0, reference: r.reference || '', img: r.preview || null }))
   const viewTotal = !isNewBooking && existingPayments.length > 0
     ? existingPayments.reduce((s, p) => s + (Number(p.Amount) || 0), 0)

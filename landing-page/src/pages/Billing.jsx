@@ -7,7 +7,7 @@ import AppLayout from './AppLayout'
 import { StatValue, Kpi, PageHeader, SearchBar, Chip } from '../components/dashboard/Shared'
 import { formatCurrency, formatFullDate } from '../components/dashboard/format'
 import { useData } from '../api/data'
-import { API_URL } from '../api/client'
+import { assetUrl } from '../api/client'
 import InvoicePaymentForm from '../components/dashboard/InvoicePaymentForm'
 import './landingFx.css'
 
@@ -255,7 +255,7 @@ export default function Billing({ user }) {
                   <div className="space-y-2">
                     {invoicePayments.map(p => (
                       <div key={p.Id} className="flex items-center gap-3 rounded-lg border border-gray-200 dark:border-[#2A2A36] p-2">
-                        <img src={p.EvidencePath ? `${API_URL}${p.EvidencePath}` : ''}
+                        <img src={assetUrl(p.EvidencePath)}
                           alt="Payment evidence"
                           className="h-12 w-12 rounded object-cover shrink-0 bg-gray-100 dark:bg-[#181820]" />
                         <div className="min-w-0 flex-1">
